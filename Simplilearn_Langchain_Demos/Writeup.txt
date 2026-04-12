@@ -1,0 +1,35 @@
+# 📰 NewsGenie – AI-Powered News & Information Assistant
+
+An end-to-end implementation using:
+
+| Component | Technology |
+|---|---|
+| Workflow orchestration | **LangGraph** `create_react_agent` |
+| Language model | **OpenAI GPT-3.5-turbo** via LangChain (tool-calling) |
+| Real-time news | **NewsAPI** |
+| Web search (fallback) | **DuckDuckGo** (no API key needed) |
+| Interactive UI | **Streamlit** |
+
+## Architecture
+
+```
+User Query
+    │
+    ▼
+OpenAI ReAct Agent  ← GPT-3.5-turbo decides which tool(s) to call
+    │
+ ┌──┴──────────────┐
+ ▼                 ▼
+get_news_tool   web_search_tool
+(NewsAPI)       (DuckDuckGo)
+ │                 │
+ └────────┬────────┘
+          ▼
+   Agent processes tool results
+          │
+          ▼
+    Final Response
+```
+
+> The agent autonomously decides whether to fetch news, search the web,
+> or combine both — no hard-coded routing needed.
