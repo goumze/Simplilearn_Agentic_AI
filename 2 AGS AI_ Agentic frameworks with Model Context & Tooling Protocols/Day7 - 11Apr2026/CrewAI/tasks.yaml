@@ -1,0 +1,7 @@
+research_task:
+  description: "Find 3-5 recent and interesting facts about {topic}."
+  expected_output: "A bullet list of 3-5 facts."
+
+blog_task:
+  description: "Write a detailed blog post about {topic} using the researched facts."
+  expected_output: "A well-structured blog article."
