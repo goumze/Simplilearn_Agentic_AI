@@ -51,7 +51,7 @@ class MedicalRAGTool(BaseTool):
 
     def _get_vectorstore(self) -> FAISS:
         if MedicalRAGTool._vectorstore is None:
-            from debater_app.tools.rag_pipeline import load_index
+            from healthcare_app.tools.rag_pipeline import load_index
             MedicalRAGTool._vectorstore = load_index()
         return MedicalRAGTool._vectorstore
 

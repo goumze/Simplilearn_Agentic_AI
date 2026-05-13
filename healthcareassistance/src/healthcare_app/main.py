@@ -7,7 +7,7 @@ from pathlib import Path
 from datetime import datetime
 from dotenv import load_dotenv
 
-from debater_app.crew import HealthcareAssistance
+from healthcare_app.crew import HealthcareAssistance
 
 # Load .env from the project root (debater/) regardless of working directory
 load_dotenv(dotenv_path=Path(__file__).parents[2] / ".env")

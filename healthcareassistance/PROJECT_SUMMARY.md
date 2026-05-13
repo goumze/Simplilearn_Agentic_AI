@@ -117,7 +117,7 @@ healthcareassistance/
 ├── knowledge/
 │   └── user_preference.txt
 ├── pyproject.toml
-└── src/debater_app/
+└── src/healthcare_app/
     ├── __init__.py
     ├── crew.py
     ├── main.py
@@ -144,7 +144,7 @@ healthcareassistance/
 ├── uv.lock                                 ← Locked dependency versions
 ├── knowledge/
 │   └── user_preference.txt
-└── src/debater_app/
+└── src/healthcare_app/
     ├── __init__.py
     ├── crew.py                             ← Crew definition: agents, tasks, tools, memory
     ├── main.py                             ← Entry point
@@ -280,10 +280,10 @@ flowchart TD
 
 ### Vector Store
 - **Backend:** FAISS (`faiss-cpu`)
-- **Index location:** `src/debater_app/patient_data/faiss_index/`
+- **Index location:** `src/healthcare_app/patient_data/faiss_index/`
 - **Vectors:** 53 (built from 22 document pages/rows, chunked at size=512, overlap=64)
 
-### Data Sources (`src/debater_app/patient_data/`)
+### Data Sources (`src/healthcare_app/patient_data/`)
 | File | Type | Content |
 |---|---|---|
 | `sample_patient.pdf` | PDF | 11-page patient chart (Bridport Family Medicine) |
@@ -296,8 +296,8 @@ flowchart TD
 ```bash
 cd healthcareassistance
 set -a && source .env && set +a
-rm -rf src/debater_app/patient_data/faiss_index
-cd src && python3 -m debater_app.tools.rag_pipeline
+rm -rf src/healthcare_app/patient_data/faiss_index
+cd src && python3 -m healthcare_app.tools.rag_pipeline
 ```
 
 ---
@@ -500,14 +500,14 @@ Required keys:
 ```bash
 cd healthcareassistance
 set -a && source .env && set +a
-cd src && python3 -m debater_app.tools.rag_pipeline && cd ..
+cd src && python3 -m healthcare_app.tools.rag_pipeline && cd ..
 ```
 
 Expected output: `FAISS index saved — 53 vectors (BAAI/bge-small-en-v1.5)`
 
 To rebuild from scratch:
 ```bash
-rm -rf src/debater_app/patient_data/faiss_index
+rm -rf src/healthcare_app/patient_data/faiss_index
 # then re-run the command above
 ```
 

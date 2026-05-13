@@ -3,8 +3,8 @@ from crewai.memory.unified_memory import Memory
 from crewai.memory.storage.lancedb_storage import LanceDBStorage
 from crewai.project import CrewBase, agent, crew, task
 
-from debater_app.tools.custom_tool import MedicalRAGTool
-from debater_app.tools.serper_tool import SerperMedicalSearchTool
+from healthcare_app.tools.custom_tool import MedicalRAGTool
+from healthcare_app.tools.serper_tool import SerperMedicalSearchTool
 
 
 @CrewBase
