@@ -1,0 +1,23 @@
+# Virtual environment
+.venv/
+
+# Secret credentials — never commit
+.env
+
+# Generated runtime data
+memory/
+src/output/
+
+# FAISS index (rebuild from source data)
+src/debater_app/patient_data/faiss_index/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+
+# Build artifacts
+*.egg-info/
+dist/
+build/
