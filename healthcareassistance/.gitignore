@@ -2,7 +2,7 @@
 .venv/
 
 # Secret credentials — never commit
-.env
+# .env is committed with placeholder values only
 
 # Generated runtime data
 memory/
