@@ -54,12 +54,34 @@ upgrade_pip() {
     print_success "pip upgraded successfully"
 }
 
+# Ensure ~/.local/bin is on PATH (pip user installs land here)
+fix_path() {
+    print_header "Configuring PATH"
+
+    LOCAL_BIN="$HOME/.local/bin"
+
+    # Add to current session
+    export PATH="$LOCAL_BIN:$PATH"
+
+    # Persist across future shells
+    for rc_file in "$HOME/.bashrc" "$HOME/.profile"; do
+        if [ -f "$rc_file" ] && ! grep -q "$LOCAL_BIN" "$rc_file"; then
+            echo "" >> "$rc_file"
+            echo "# Added by setup_crewai.sh" >> "$rc_file"
+            echo "export PATH=\"$LOCAL_BIN:\$PATH\"" >> "$rc_file"
+            print_success "Added $LOCAL_BIN to PATH in $rc_file"
+        fi
+    done
+
+    print_success "PATH configured: $LOCAL_BIN is on PATH"
+}
+
 # Install CrewAI
 install_crewai() {
     print_header "Installing CrewAI Framework"
     
     print_warning "Installing CrewAI and dependencies..."
-    python3 -m pip install crewai crewai-tools
+    python3 -m pip install --user crewai crewai-tools
     
     print_success "CrewAI installed successfully"
 }
@@ -91,10 +113,19 @@ verify_installation() {
     print_header "Verifying Installation"
     
     if python3 -c "import crewai; print(f'CrewAI version: {crewai.__version__}')" 2>/dev/null; then
-        print_success "CrewAI is properly installed"
+        print_success "CrewAI Python package is properly installed"
     else
         print_error "CrewAI installation verification failed"
         exit 1
+    fi
+
+    # Verify the CLI is reachable
+    if command -v crewai &> /dev/null; then
+        crewai_cli_version=$(crewai --version 2>&1)
+        print_success "CrewAI CLI is available: $crewai_cli_version"
+    else
+        print_warning "crewai CLI not found on PATH after install."
+        print_warning "Run: source ~/.bashrc  (or open a new terminal) to pick up the updated PATH."
     fi
 }
 
@@ -130,6 +161,7 @@ main() {
     print_header "CrewAI Setup Script Started"
     
     check_python
+    fix_path
     upgrade_pip
     install_crewai
     install_dependencies

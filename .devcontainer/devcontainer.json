@@ -1,0 +1,14 @@
+{
+    "name": "Simplilearn Agentic AI",
+    "image": "mcr.microsoft.com/devcontainers/python:3.11",
+    // Run the CrewAI setup script automatically whenever the container is created
+    "postCreateCommand": "bash /workspaces/Simplilearn_Agentic_AI/setup_crewai.sh",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.python",
+                "ms-toolsai.jupyter"
+            ]
+        }
+    }
+}
