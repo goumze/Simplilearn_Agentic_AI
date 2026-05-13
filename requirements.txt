@@ -2,8 +2,9 @@
 # Install with: pip install -r requirements.txt
 
 # Core CrewAI
-crewai>=0.1.0
-crewai-tools>=0.1.0
+# crewai>=1.0.0 is required for the CLI commands (crewai create, crewai run, etc.)
+crewai>=1.0.0
+crewai-tools>=1.0.0
 
 # LLM Frameworks
 langchain>=0.1.0
