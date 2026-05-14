@@ -37,18 +37,7 @@ st.caption("Multi-Agent System powered by LangGraph + OpenAI")
 # Sidebar
 # ---------------------------------------------------------------------------
 with st.sidebar:
-    st.header("Configuration")
     customer_name = st.text_input("Customer Name", value="Valued Customer")
-    st.markdown("---")
-    st.markdown(
-        "**Agent Flow**\n\n"
-        "1. **RAG Retrieval** — fetch similar past conversations\n"
-        "2. **Classifier Agent** — classifies message (RAG-enhanced)\n"
-        "3. **Feedback Handler** — positive / negative (RAG-enhanced)\n"
-        "4. **Query Handler** — ticket status lookup (RAG-enhanced)\n"
-        "5. **Logger** — persists to SQLite\n"
-        "6. **RAG Storage** — embeds & stores in LanceDB (FAISS)"
-    )
     st.markdown("---")
     st.markdown("**Sample Messages**")
     samples = {

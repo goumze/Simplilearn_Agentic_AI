@@ -198,7 +198,7 @@ def retrieve_similar(query: str, top_k: int = TOP_K_DEFAULT) -> list[dict]:
         results = (
             table.search(vector)
                  .limit(min(top_k, total))
-                 .select(["user_message", "classification", "response", "ticket_id", "timestamp"])
+                 .select(["user_message", "classification", "response", "ticket_id", "timestamp", "_distance"])
                  .to_list()
         )
 
