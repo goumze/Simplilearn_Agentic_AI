@@ -1,48 +1,51 @@
 """
-Captures screenshots of all Streamlit UI tabs and saves them to screenshots/
+Captures screenshots of all Streamlit UI tabs and saves them to screenshots/.
 Uses Playwright running inside the container (localhost access, no auth required).
+
+Tabs captured: Chat, Tickets, Evaluation (Logs and RAG Store removed from UI).
+Also pre-fills each sample message button to show the test-case scenarios.
 """
 import asyncio
 from pathlib import Path
 from playwright.async_api import async_playwright
 
-BASE_URL  = "http://localhost:8502"
-SAVE_DIR  = Path(__file__).parent.parent / "screenshots"
+BASE_URL = "http://localhost:8502"
+SAVE_DIR = Path(__file__).parent.parent / "screenshots"
 SAVE_DIR.mkdir(exist_ok=True)
-
-TABS = [
-    ("chat",       "💬 Chat",        None),
-    ("tickets",    "🎫 Tickets",     None),
-    ("logs",       "📋 Logs",        None),
-    ("rag_store",  "🧠 RAG Store",   None),
-    ("evaluation", "📊 Evaluation",  None),
-]
 
 
 async def wait_for_streamlit(page, timeout=45_000):
     """Wait until Streamlit has fully rendered content."""
     await page.wait_for_load_state("domcontentloaded", timeout=timeout)
-    # Wait for Streamlit app container
     await page.wait_for_selector('[data-testid="stApp"]', timeout=timeout)
-    # Wait for any Streamlit spinner to disappear
     try:
-        await page.wait_for_selector('.stSpinner', state='detached', timeout=8_000)
+        await page.wait_for_selector(".stSpinner", state="detached", timeout=8_000)
     except Exception:
         pass
-    # Wait until there is visible text content in the app
     await page.wait_for_function(
         "() => document.querySelector('[data-testid=\"stApp\"]')?.innerText?.trim().length > 20",
         timeout=timeout,
     )
-    await asyncio.sleep(2.0)  # final render settle
+    await asyncio.sleep(2.0)
 
 
-async def click_tab(page, tab_label: str):
-    """Click a tab by its visible text and wait for content to settle."""
-    # Use partial text match for tab button
-    label_word = tab_label.split()[-1]  # e.g. "Chat", "Tickets"
+async def click_tab(page, label_word: str):
+    """Click a tab button by a word in its label and wait for content."""
     await page.click(f'button[role="tab"]:has-text("{label_word}")')
     await asyncio.sleep(2.0)
+
+
+async def fill_and_screenshot(page, message: str, filename: str, label: str):
+    """Type a message into the textarea and screenshot (without sending — no API key)."""
+    await click_tab(page, "Chat")
+    # Clear the textarea and type the test message
+    textarea = page.locator("textarea").first
+    await textarea.click()
+    await textarea.fill(message)
+    await asyncio.sleep(1.0)
+    path = SAVE_DIR / filename
+    await page.screenshot(path=str(path), full_page=False)
+    print(f"  Saved: {path.name}  ({label})")
 
 
 async def main():
@@ -53,43 +56,46 @@ async def main():
         print(f"Opening {BASE_URL} ...")
         await page.goto(BASE_URL, wait_until="domcontentloaded", timeout=30_000)
         await wait_for_streamlit(page)
-        print("  Streamlit loaded.")
+        print("  Streamlit loaded.\n")
 
-        # ── 1. Full app screenshot (Chat tab default) ──────────────────────
-        path = SAVE_DIR / "01_chat_tab.png"
+        # ── 01. Chat tab — empty (default state) ──────────────────────────
+        path = SAVE_DIR / "01_chat_tab_default.png"
         await page.screenshot(path=str(path), full_page=False)
-        print(f"  Saved: {path.name}")
+        print(f"  Saved: {path.name}  (Chat — default state)")
 
-        # ── 2. Tickets tab ─────────────────────────────────────────────────
-        await click_tab(page, "🎫 Tickets")
-        path = SAVE_DIR / "02_tickets_tab.png"
+        # ── 02–04. Chat tab — test-case messages pre-filled ────────────────
+        test_messages = [
+            ("Thanks for sorting out my net banking login issue.",
+             "02_chat_positive_feedback.png",
+             "Test case: Positive Feedback (Alice)"),
+            ("My debit card replacement still hasn't arrived after 3 weeks.",
+             "03_chat_negative_feedback.png",
+             "Test case: Negative Feedback (Carol)"),
+            ("Could you check the status of ticket 650932?",
+             "04_chat_ticket_query.png",
+             "Test case: Ticket Query (Eve)"),
+        ]
+        for msg, fname, lbl in test_messages:
+            await fill_and_screenshot(page, msg, fname, lbl)
+
+        # ── 05. Tickets tab ────────────────────────────────────────────────
+        await click_tab(page, "Tickets")
+        path = SAVE_DIR / "05_tickets_tab.png"
         await page.screenshot(path=str(path), full_page=False)
-        print(f"  Saved: {path.name}")
+        print(f"  Saved: {path.name}  (Tickets)")
 
-        # ── 3. Logs tab ────────────────────────────────────────────────────
-        await click_tab(page, "📋 Logs")
-        path = SAVE_DIR / "03_logs_tab.png"
+        # ── 06. Evaluation tab ─────────────────────────────────────────────
+        await click_tab(page, "Evaluation")
+        path = SAVE_DIR / "06_evaluation_tab.png"
         await page.screenshot(path=str(path), full_page=False)
-        print(f"  Saved: {path.name}")
+        print(f"  Saved: {path.name}  (Evaluation)")
 
-        # ── 4. RAG Store tab ───────────────────────────────────────────────
-        await click_tab(page, "🧠 RAG Store")
-        path = SAVE_DIR / "04_rag_store_tab.png"
-        await page.screenshot(path=str(path), full_page=False)
-        print(f"  Saved: {path.name}")
-
-        # ── 5. Evaluation tab ──────────────────────────────────────────────
-        await click_tab(page, "📊 Evaluation")
-        path = SAVE_DIR / "05_evaluation_tab.png"
-        await page.screenshot(path=str(path), full_page=False)
-        print(f"  Saved: {path.name}")
-
-        # ── 6. Full page scrolled screenshot of Chat tab ───────────────────
-        await click_tab(page, "💬 Chat")
-        await asyncio.sleep(0.8)
-        path = SAVE_DIR / "06_full_page.png"
+        # ── 07. Full-page Chat tab ─────────────────────────────────────────
+        await click_tab(page, "Chat")
+        await asyncio.sleep(0.5)
+        path = SAVE_DIR / "07_full_page.png"
         await page.screenshot(path=str(path), full_page=True)
-        print(f"  Saved: {path.name}")
+        print(f"  Saved: {path.name}  (full-page scroll)")
 
         await browser.close()
         print("\nAll screenshots saved to screenshots/")

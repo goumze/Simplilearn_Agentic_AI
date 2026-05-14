@@ -15,9 +15,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from database import init_db, get_all_logs, get_all_tickets
+from database import init_db, get_all_tickets
 from workflow import run_support_agent
-from rag import get_all_rag_records
 
 # Initialize DB on first run
 init_db()
@@ -64,8 +63,8 @@ with st.sidebar:
 # ---------------------------------------------------------------------------
 # Main tabs
 # ---------------------------------------------------------------------------
-tab_chat, tab_tickets, tab_logs, tab_rag, tab_eval = st.tabs(
-    ["💬 Chat", "🎫 Tickets", "📋 Logs", "🧠 RAG Store", "📊 Evaluation"]
+tab_chat, tab_tickets, tab_eval = st.tabs(
+    ["💬 Chat", "🎫 Tickets", "📊 Evaluation"]
 )
 
 # ---- Chat tab ----
@@ -145,61 +144,6 @@ with tab_tickets:
         st.dataframe(styled, width="stretch")
     else:
         st.info("No tickets found.")
-
-# ---- Logs tab ----
-with tab_logs:
-    st.subheader("Agent Interaction Logs")
-    if st.button("🔄 Refresh", key="refresh_logs"):
-        st.rerun()
-
-    logs = get_all_logs()
-    if logs:
-        df = pd.DataFrame(logs)
-        df["success"] = df["success"].map({1: "✅ Yes", 0: "❌ No"})
-        st.dataframe(df, width="stretch")
-
-        # Summary metrics
-        st.markdown("---")
-        total = len(logs)
-        success_count = sum(1 for log in logs if log["success"] in (1, "✅ Yes"))
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Total Interactions", total)
-        col2.metric("Successful", success_count)
-        col3.metric("Success Rate", f"{success_count / total * 100:.1f}%" if total else "N/A")
-    else:
-        st.info("No logs found yet. Submit a message in the Chat tab.")
-
-# ---- RAG Store tab ----
-with tab_rag:
-    st.subheader("RAG Vector Store — LanceDB + FAISS")
-    st.markdown(
-        "All completed conversations are embedded using **OpenAI text-embedding-3-small** "
-        "and stored in **LanceDB** with a **FAISS IVF-PQ** index. "
-        f"The index is built automatically after {50} records.  "
-        "Incoming messages are matched against this store to retrieve relevant past "
-        "interactions that are injected into every agent's system prompt."
-    )
-
-    if st.button("🔄 Refresh", key="refresh_rag"):
-        st.rerun()
-
-    records = get_all_rag_records()
-    if records:
-        # Drop the vector field for display
-        df = pd.DataFrame(records).drop(columns=["vector"], errors="ignore")
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Total Embeddings", len(records))
-        breakdown = df["classification"].value_counts().to_dict() if "classification" in df.columns else {}
-        col2.metric("Positive Feedback", breakdown.get("positive_feedback", 0))
-        col3.metric("Negative Feedback / Query",
-                    breakdown.get("negative_feedback", 0) + breakdown.get("query", 0))
-        st.markdown("---")
-        st.dataframe(df, width="stretch")
-    else:
-        st.info(
-            "The RAG store is empty. Submit messages in the Chat tab to populate it. "
-            "Embeddings are created after each interaction."
-        )
 
 # ---- Evaluation tab ----
 with tab_eval:
