@@ -141,7 +141,7 @@ with tab_tickets:
             colors = {"Resolved": "background-color: #d4edda", "Unresolved": "background-color: #f8d7da", "In Progress": "background-color: #fff3cd"}
             return colors.get(val, "")
 
-        styled = df.style.applymap(highlight_status, subset=["status"])
+        styled = df.style.map(highlight_status, subset=["status"])
         st.dataframe(styled, use_container_width=True)
     else:
         st.info("No tickets found.")
