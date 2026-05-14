@@ -58,7 +58,7 @@ with st.sidebar:
         "Ticket Query": "Could you check the status of ticket 650932?",
     }
     for label, msg in samples.items():
-        if st.button(label, use_container_width=True):
+        if st.button(label, width="stretch"):
             st.session_state["prefill"] = msg
 
 # ---------------------------------------------------------------------------
@@ -80,7 +80,7 @@ with tab_chat:
         placeholder="Type your feedback or query here...",
     )
 
-    if st.button("Send", type="primary", use_container_width=False):
+    if st.button("Send", type="primary", width="content"):
         if not user_message.strip():
             st.warning("Please enter a message.")
         elif not os.getenv("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY") == "your-openai-api-key-here":
@@ -142,7 +142,7 @@ with tab_tickets:
             return colors.get(val, "")
 
         styled = df.style.map(highlight_status, subset=["status"])
-        st.dataframe(styled, use_container_width=True)
+        st.dataframe(styled, width="stretch")
     else:
         st.info("No tickets found.")
 
@@ -156,7 +156,7 @@ with tab_logs:
     if logs:
         df = pd.DataFrame(logs)
         df["success"] = df["success"].map({1: "✅ Yes", 0: "❌ No"})
-        st.dataframe(df, use_container_width=True)
+        st.dataframe(df, width="stretch")
 
         # Summary metrics
         st.markdown("---")
@@ -194,7 +194,7 @@ with tab_rag:
         col3.metric("Negative Feedback / Query",
                     breakdown.get("negative_feedback", 0) + breakdown.get("query", 0))
         st.markdown("---")
-        st.dataframe(df, use_container_width=True)
+        st.dataframe(df, width="stretch")
     else:
         st.info(
             "The RAG store is empty. Submit messages in the Chat tab to populate it. "
@@ -243,4 +243,4 @@ with tab_eval:
                         "Response (truncated)": r.response[:80] + "..." if len(r.response) > 80 else r.response,
                     }
                 )
-            st.dataframe(pd.DataFrame(rows), use_container_width=True)
+            st.dataframe(pd.DataFrame(rows), width="stretch")

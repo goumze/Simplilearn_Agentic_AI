@@ -1,4 +1,4 @@
-2026-05-14 19:07:54.375 Uvicorn server started on 0.0.0.0:8502
+2026-05-14 19:15:41.037 Uvicorn server started on 0.0.0.0:8502
 
   You can now view your Streamlit app in your browser.
 
@@ -6,33 +6,3 @@
   Network URL: http://10.0.0.145:8502
   External URL: http://20.192.21.49:8502
 
-2026-05-14 19:08:11.649 Please replace `use_container_width` with `width`.
-
-`use_container_width` will be removed after 2025-12-31.
-
-For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
-2026-05-14 19:08:11.828 Please replace `use_container_width` with `width`.
-
-`use_container_width` will be removed after 2025-12-31.
-
-For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
-2026-05-14 19:08:12.134 Please replace `use_container_width` with `width`.
-
-`use_container_width` will be removed after 2025-12-31.
-
-For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
-2026-05-14 19:09:16.172 Please replace `use_container_width` with `width`.
-
-`use_container_width` will be removed after 2025-12-31.
-
-For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
-2026-05-14 19:09:16.242 Please replace `use_container_width` with `width`.
-
-`use_container_width` will be removed after 2025-12-31.
-
-For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
-2026-05-14 19:09:16.325 Please replace `use_container_width` with `width`.
-
-`use_container_width` will be removed after 2025-12-31.
-
-For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
