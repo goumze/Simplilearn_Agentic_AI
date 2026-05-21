@@ -1,0 +1,11 @@
+langchain-core
+langchain-openai
+langchain-community
+langgraph
+pydantic
+gradio
+nest-asyncio
+python-dotenv
+playwright
+lxml
+langsmith
