@@ -293,5 +293,5 @@ def reset_thread():
 
 
 if __name__ == "__main__":
-    print("Starting Sidekick Flask server on http://0.0.0.0:7860")
-    app.run(host="0.0.0.0", port=7860, debug=False, threaded=True)
+    print("Starting Sidekick Flask server on http://0.0.0.0:8080")
+    app.run(host="0.0.0.0", port=8080, debug=False, threaded=True)

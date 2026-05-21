@@ -1,7 +1,7 @@
 {
-  "forwardPorts": [7860],
+  "forwardPorts": [8080],
   "portsAttributes": {
-    "7860": {
+    "8080": {
       "label": "Sidekick UI",
       "onAutoForward": "openBrowser",
       "visibility": "public"

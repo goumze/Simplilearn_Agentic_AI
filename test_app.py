@@ -6,7 +6,7 @@ import sys
 import uuid
 import requests
 
-BASE_URL = sys.argv[1].rstrip("/") if len(sys.argv) > 1 else "http://localhost:7860"
+BASE_URL = sys.argv[1].rstrip("/") if len(sys.argv) > 1 else "http://localhost:8080"
 TIMEOUT  = 180  # seconds per request (browser + LLM can be slow)
 
 PASS = "\033[32mPASSED\033[0m"
