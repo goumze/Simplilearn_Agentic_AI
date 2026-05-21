@@ -8,7 +8,7 @@ from langgraph.prebuilt import ToolNode
 from langgraph.graph.message import add_messages
 from playwright.async_api import async_playwright
 from pydantic import BaseModel, Field
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 import asyncio
 import threading
 import uuid
@@ -241,6 +241,12 @@ async def process_message(message: str, success_criteria: str, history: List[Dic
 
 
 app = Flask(__name__)
+
+
+@app.route("/", methods=["GET"])
+def index():
+    """Serve the chat UI."""
+    return render_template("index.html")
 
 
 @app.route("/health", methods=["GET"])
