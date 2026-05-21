@@ -8,12 +8,25 @@ from langgraph.prebuilt import ToolNode
 from langgraph.graph.message import add_messages
 from playwright.async_api import async_playwright
 from pydantic import BaseModel, Field
+from flask import Flask, request, jsonify
 import asyncio
-import gradio as gr
+import threading
 import uuid
 from dotenv import load_dotenv
 
 load_dotenv(override=True)
+
+# ── Background asyncio event loop ──────────────────────────────────────────
+# All async LangGraph/Playwright operations run in this dedicated loop so that
+# Flask's synchronous request threads can safely call async code.
+_async_loop = asyncio.new_event_loop()
+threading.Thread(target=_async_loop.run_forever, daemon=True, name="async-worker").start()
+
+
+def run_async(coro, timeout: int = 300):
+    """Submit a coroutine to the background event loop and block until done."""
+    future = asyncio.run_coroutine_threadsafe(coro, _async_loop)
+    return future.result(timeout=timeout)
 
 
 # --- Structured Output Schema ---
@@ -203,65 +216,76 @@ def _build_graph(tools):
     return graph_builder.compile(checkpointer=memory)
 
 
-# --- Gradio UI ---
+# ── Flask App ──────────────────────────────────────────────────────────────
 
 def make_thread_id() -> str:
     return str(uuid.uuid4())
 
 
-async def process_message(message, success_criteria, history, thread):
+async def process_message(message: str, success_criteria: str, history: List[Dict], thread: str) -> List[Dict]:
+    """Invoke the LangGraph agent and return the updated message history."""
+    graph = await get_graph()
+    config = {"configurable": {"thread_id": thread}}
+    state = {
+        "messages": message,
+        "success_criteria": success_criteria,
+        "feedback_on_work": None,
+        "success_criteria_met": False,
+        "user_input_needed": False,
+    }
+    result = await graph.ainvoke(state, config=config)
+    user_msg     = {"role": "user",      "content": message}
+    reply_msg    = {"role": "assistant", "content": result["messages"][-2].content}
+    feedback_msg = {"role": "assistant", "content": result["messages"][-1].content}
+    return history + [user_msg, reply_msg, feedback_msg]
+
+
+app = Flask(__name__)
+
+
+@app.route("/health", methods=["GET"])
+def health():
+    """Liveness probe."""
+    return jsonify({"status": "ok", "service": "sidekick-agent"})
+
+
+@app.route("/api/chat", methods=["POST"])
+def chat():
+    """
+    Send a message to the Sidekick agent.
+
+    Request JSON:
+        message          (str, required)  – user's request
+        success_criteria (str, optional)  – what counts as a good answer
+        history          (list, optional) – prior messages from /api/chat responses
+        thread_id        (str, optional)  – conversation ID (new one created if omitted)
+
+    Response JSON:
+        thread_id (str)   – use this in subsequent requests for multi-turn conversation
+        messages  (list)  – full conversation history including the new exchange
+    """
+    data = request.get_json(force=True) or {}
+    message          = (data.get("message") or "").strip()
+    success_criteria = (data.get("success_criteria") or "").strip()
+    history          = data.get("history") or []
+    thread_id        = data.get("thread_id") or make_thread_id()
+
+    if not message:
+        return jsonify({"error": "message is required"}), 400
+
     try:
-        graph = await get_graph()
-        config = {"configurable": {"thread_id": thread}}
-        state = {
-            "messages": message,
-            "success_criteria": success_criteria,
-            "feedback_on_work": None,
-            "success_criteria_met": False,
-            "user_input_needed": False,
-        }
-        result = await graph.ainvoke(state, config=config)
-        user_msg = {"role": "user", "content": message}
-        reply_msg = {"role": "assistant", "content": result["messages"][-2].content}
-        feedback_msg = {"role": "assistant", "content": result["messages"][-1].content}
-        return history + [user_msg, reply_msg, feedback_msg]
+        messages = run_async(process_message(message, success_criteria, history, thread_id))
+        return jsonify({"thread_id": thread_id, "messages": messages})
     except Exception as e:
-        user_msg = {"role": "user", "content": message}
-        error_msg = {"role": "assistant", "content": f"Error: {e}"}
-        return history + [user_msg, error_msg]
+        return jsonify({"error": str(e)}), 500
 
 
-async def reset():
-    return "", "", [], make_thread_id()
-
-
-def launch_ui():
-    with gr.Blocks() as demo:
-        gr.Markdown("## Sidekick Personal Co-worker")
-        thread = gr.State(make_thread_id())
-
-        with gr.Row():
-            chatbot = gr.Chatbot(label="Sidekick", height=300)
-        with gr.Group():
-            with gr.Row():
-                message = gr.Textbox(show_label=False, placeholder="Your request to your sidekick")
-            with gr.Row():
-                success_criteria = gr.Textbox(show_label=False, placeholder="What are your success criteria?")
-        with gr.Row():
-            reset_button = gr.Button("Reset", variant="stop")
-            go_button = gr.Button("Go!", variant="primary")
-
-        message.submit(process_message, [message, success_criteria, chatbot, thread], [chatbot])
-        success_criteria.submit(process_message, [message, success_criteria, chatbot, thread], [chatbot])
-        go_button.click(process_message, [message, success_criteria, chatbot, thread], [chatbot])
-        reset_button.click(reset, [], [message, success_criteria, chatbot, thread])
-
-    demo.launch(
-        theme=gr.themes.Default(primary_hue="emerald"),
-        server_name="0.0.0.0",
-        server_port=7860,
-    )
+@app.route("/api/reset", methods=["POST"])
+def reset_thread():
+    """Return a fresh thread ID to start a new conversation."""
+    return jsonify({"thread_id": make_thread_id()})
 
 
 if __name__ == "__main__":
-    launch_ui()
+    print("Starting Sidekick Flask server on http://0.0.0.0:7860")
+    app.run(host="0.0.0.0", port=7860, debug=False, threaded=True)

@@ -3,9 +3,9 @@ langchain-openai
 langchain-community
 langgraph
 pydantic
-gradio
-nest-asyncio
+flask
 python-dotenv
 playwright
 lxml
 langsmith
+requests
