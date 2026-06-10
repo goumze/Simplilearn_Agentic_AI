@@ -49,3 +49,5 @@ venv/
 dist/
 .pytest_cache/
 next-env.d.ts
+.env.local
+.env

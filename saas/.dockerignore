@@ -1,0 +1,21 @@
+# --- Node / Next.js build artefacts ---
+node_modules/
+.next/
+out/
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# --- Secrets / env files ---
+.env
+.env.local
+.env*.local
+
+# --- Dev / editor clutter ---
+.DS_Store
+*.pem
+.git/
+.gitignore

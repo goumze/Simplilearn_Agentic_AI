@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "export": "next build",
-    "start": "uvicorn api.main:app --host 0.0.0.0 --port 8000",
+    "start": "uvicorn api.server:app --host 0.0.0.0 --port 8000",
     "lint": "eslint"
   },
   "dependencies": {
