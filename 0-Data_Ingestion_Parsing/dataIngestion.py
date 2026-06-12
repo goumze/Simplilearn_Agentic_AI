@@ -5,6 +5,7 @@ from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter, CharacterTextSplitter, TokenTextSplitter
 from langchain_community.document_loaders import TextLoader
 from langchain_community.document_loaders import DirectoryLoader
+from langchain_community.document_loaders import CSVLoader, JSONLoader, PyPDFLoader, PyMuPDFLoader, UnstructuredWordDocumentLoader, UnstructuredPowerPointLoader
 
 if __name__ == "__main__":
     doc = Document(page_content="This is the main text content that will be embedded and searched.", 
@@ -58,5 +59,22 @@ In conclusion, Python's simplicity, extensive libraries, cross-platform compatib
         print(f"Content: {doc.page_content[:100]}...")  # Print the first 100 characters of the document content
         print(f"Metadata: {doc.metadata}")
 
+#Method 1: PyPDFLoader (Basic & Fast)
+try:
+    pypdf_loader = PyPDFLoader("data/pdf_files/sample.pdf")
+    pypdf_documents = pypdf_loader.load()
+    print(f"Loaded {len(pypdf_documents)} pages")
+    print(f"First page content: {pypdf_documents[0].page_content[:100]}...")  # Print the first 100 characters of the first page content
+    print(f"First page metadata: {pypdf_documents[0].metadata}")
+except Exception as e:
+    print(f"Error loading PDF: {e}")
 
-
+#Method 2: PyMuPDFLoader (Fast & Accurate)
+try:
+    pymupdf_loader = PyMuPDFLoader("data/pdf_files/sample.pdf")
+    pymupdf_documents = pymupdf_loader.load()
+    print(f"Loaded {len(pymupdf_documents)} pages")
+    print(f"First page content: {pymupdf_documents[0].page_content[:100]}...")  # Print the first 100 characters of the first page content
+    print(f"First page metadata: {pymupdf_documents[0].metadata}")
+except Exception as e:
+    print(f"Error loading PDF with PyMuPDFLoader: {e}")
