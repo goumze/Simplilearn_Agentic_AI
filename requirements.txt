@@ -11,3 +11,6 @@ pypdf
 pymupdf
 python-dotenv
 pandas
+python-docx
+docx2txt
+unstructured
