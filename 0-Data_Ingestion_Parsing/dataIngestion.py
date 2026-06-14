@@ -83,6 +83,7 @@ except Exception as e:
 
 #Method 1: CharacterTextSplitter
 text=documents[0].page_content
+print("--------CharacterTextSplitter---------------------------")
 print(f"Original text length: {len(text)} characters")
 char_text_splitter = CharacterTextSplitter(separator="\n", chunk_size=100, chunk_overlap=20, length_function=len)
 char_chunks = char_text_splitter.split_text(text)
