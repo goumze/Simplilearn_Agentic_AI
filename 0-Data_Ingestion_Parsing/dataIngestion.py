@@ -78,3 +78,41 @@ try:
     print(f"First page metadata: {pymupdf_documents[0].metadata}")
 except Exception as e:
     print(f"Error loading PDF with PyMuPDFLoader: {e}")
+
+#Text Splitters
+
+#Method 1: CharacterTextSplitter
+text=documents[0].page_content
+print(f"Original text length: {len(text)} characters")
+char_text_splitter = CharacterTextSplitter(separator="\n", chunk_size=100, chunk_overlap=20, length_function=len)
+char_chunks = char_text_splitter.split_text(text)
+print(f"Number of chunks created: {len(char_chunks)}")     
+
+char_chunks = char_text_splitter.split_text(text)
+print(f"Number of chunks created: {len(char_chunks)}")
+print(f"First chunk content: {char_chunks[0][:100]}...")  # Print the first 100 characters of the first chunk
+
+print("-----------------------------------")
+print("All chunks:")
+for i, chunk in enumerate(char_chunks):
+    print(f"\nChunk {i+1}:")
+    print(f"Content: {chunk[:100]}...")  # Print the first 100 characters of the chunk
+    print(f"Chunk length: {len(chunk)} characters")
+
+#Method 2: RecursiveCharacterTextSplitter
+recursive_text_splitter = RecursiveCharacterTextSplitter(
+    separators=["\n\n", "\n", " ", ""],  # Try to split by paragraphs, then lines, then words, then characters
+    chunk_size=100,
+    chunk_overlap=20,
+    length_function=len
+)
+recursive_chunks = recursive_text_splitter.split_text(text)
+print("--------RecursiveCharacterTextSplitter---------------------------")
+print(f"Original text length: {len(text)} characters")
+print(f"Number of chunks created: {len(recursive_chunks)}")
+print(f"First chunk content: {recursive_chunks[0][:100]}...")  # Print the first 100 characters of the first chunk    
+
+for i, chunk in enumerate(recursive_chunks):
+    print(f"\nChunk {i+1}:")
+    print(f"Content: {chunk[:100]}...")  # Print the first 100 characters of the chunk
+    print(f"Chunk length: {len(chunk)} characters")
