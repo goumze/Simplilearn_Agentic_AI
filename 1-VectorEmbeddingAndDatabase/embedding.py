@@ -1,6 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import requests
+import os
+from dotenv import load_dotenv
+from huggingface_hub import InferenceClient
+from langchain_openai import OpenAIEmbeddings
 
 def cosine_similarity(vec1, vec2):
     """
@@ -84,9 +88,7 @@ def cosine_similarity(vec1, vec2):
 
 #Hugging Face Inference via InferenceClient (no local model download required)
 
-import os
-from dotenv import load_dotenv
-from huggingface_hub import InferenceClient
+
 
 load_dotenv()
 HF_TOKEN = os.getenv("HF_TOKEN")
@@ -111,8 +113,10 @@ class HFInferenceEmbeddings:
 
 embedder = HFInferenceEmbeddings()
 
+print("\n--- Using Hugging Face InferenceClient Embeddings ---")
+single_text = "Langchain and RAG are powerful tools for building AI applications."
 # embed_query — single text (e.g. a user search query)
-query_embedding = embedder.embed_query("What is semantic search?")
+query_embedding = embedder.embed_query(single_text)
 print(f"embed_query result — dims: {len(query_embedding)}, first 5 values: {query_embedding[:5]}")
 
 # embed_documents — multiple texts (e.g. a document corpus)
@@ -123,5 +127,17 @@ documents = [
     "They capture semantic meaning",
 ]
 doc_embeddings = embedder.embed_documents(documents)
-print(f"embed_documents result — {len(doc_embeddings)} docs, each {len(doc_embeddings[0])} dims")
+print(f"embed_documents result — {len(doc_embeddings)} docs, all doc embeddings {doc_embeddings} ")
 
+
+print("\n--- Using OpenAI Embeddings ---")
+embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+
+#Single Text Embedding
+single_embeddings=embeddings.embed_query(single_text)
+print(f"Single Text Embedding — dims: {len(single_embeddings)}, all values  : {single_embeddings}")
+
+print("\n--- Using OpenAI Embeddings for Multiple Documents ---")
+#Multiple Text Embeddings
+multiple_embeddings=embeddings.embed_documents(documents)
+print(f"Multiple Text Embeddings — {len(multiple_embeddings)} docs, all doc embeddings : {multiple_embeddings}")
