@@ -184,8 +184,14 @@ query_embedding = openapiembeddings.embed_query(query)
 
 #Calculate cosine similarity between the query and each sentence
 similarities = [cosine_similarity(query_embedding, emb) for emb in sentence_embeddings]
+
 #Find the index of the most similar sentence
 print(f"Similarities: {similarities}")
 most_similar_index = np.argmax(similarities)
 print(f"Query: '{query}'")
 print(f"Most similar sentence: '{sentences[most_similar_index]}' with similarity score: {similarities[most_similar_index]:.4f}")
+
+print("\n--- Semantic Search Example with Hugging Face InferenceClient Embeddings ---")
+similarities_hf = [cosine_similarity(query_embedding, emb) for emb in hf_sentence_embeddings]
+most_similar_index_hf = np.argmax(similarities_hf)
+print(f"Most similar sentence using Hugging Face embeddings: '{hf_sentences[most_similar_index_hf]}' with similarity score: {similarities_hf[most_similar_index_hf]:.4f}")
