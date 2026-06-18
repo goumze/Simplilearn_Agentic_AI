@@ -1,0 +1,3 @@
+# Conversation memory files are stored here as JSON (one file per session).
+# This directory is intentionally kept in git so the folder exists on checkout.
+# The *.json files are excluded via .gitignore.
