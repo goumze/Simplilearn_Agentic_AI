@@ -13,6 +13,11 @@ from langchain_core.prompts import ChatPromptTemplate
 ## vectorstores
 from langchain_community.vectorstores import Chroma
 
+## LCEL imports
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.runnables import RunnablePassthrough, RunnableParallel
+from operator import itemgetter
+
 ## utility imports
 import numpy as np
 from typing import List
@@ -135,7 +140,9 @@ if __name__ == "__main__":
     If you don't know the answer, just say that you don't know. 
     Use three sentences maximum and keep the answer concise.
 
-    Context: {context}"""
+    Context: {context}
+
+    Question: {input}"""
 
     document_chain = create_stuff_documents_chain(llm=llm, prompt=ChatPromptTemplate.from_template(system_prompt))
     rag_chain = create_retrieval_chain(retriever, document_chain)
@@ -148,7 +155,64 @@ if __name__ == "__main__":
     print("\n")
 
 
+# Function to query the modern RAG system
+    def query_rag_modern(question):
+        print(f"Question: {question}")
+        print("-" * 50)
+    
+        # Using create_retrieval_chain approach
+        result = rag_chain.invoke({"input": question})
+    
+        print(f"Answer: {result['answer']}")
+        print("\nRetrieved Context:")
+        for i, doc in enumerate(result['context']):
+            print(f"\n--- Source {i+1} ---")
+            print(doc.page_content[:200] + "...")
+    
+        return result
 
+    # Test queries
+    test_questions = [
+        "What are the three types of machine learning?",
+        "What is deep learning and how does it relate to neural networks?",
+        "What are CNNs best used for?"
+    ]
 
+    for question in test_questions:
+        result = query_rag_modern(question)
+        print("\n" + "="*80 + "\n")
 
+    #Using Langchain LCEL approach
+    print("Using Langchain LCEL approach for RAG:")
 
+    # Build LCEL RAG chain:
+    # RunnableParallel fans out the input into 'context' (retrieved docs) and 'input' (original query)
+    rag_chain_lcel = (
+        RunnableParallel(
+            context=itemgetter("input") | retriever,
+            input=itemgetter("input")
+        )
+        | document_chain
+        | StrOutputParser()
+    )
+
+    lcel_result = rag_chain_lcel.invoke({"input": "Explain the key concepts of Natural Language Processing (NLP)."})
+    print(f"LCEL RAG Response: {lcel_result}")
+    print("LCEL RAG chain invoked successfully.")
+
+    rag_chain_runnable_pass_through_lcel = (
+        RunnablePassthrough.assign(
+            context=itemgetter("input") | retriever
+        )
+        | document_chain
+        | StrOutputParser()
+    )
+
+    print("LCEL RAG chain with RunnablePassthrough invoked successfully.")
+    print("Invoking LCEL RAG chain with RunnablePassthrough for a query:")
+    lcel_result_runnable_pass_through = rag_chain_runnable_pass_through_lcel.invoke({"input": "What are the main tasks in Natural Language Processing (NLP)?"})
+    print(f"LCEL RAG Response with RunnablePassthrough: {lcel_result_runnable_pass_through}")
+    print("LCEL RAG chain with RunnablePassthrough invoked successfully for the query.")
+
+  
+  
