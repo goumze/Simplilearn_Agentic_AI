@@ -215,4 +215,35 @@ if __name__ == "__main__":
     print("LCEL RAG chain with RunnablePassthrough invoked successfully for the query.")
 
   
-  
+ #Adding Documents to existing Chroma Vector Store
+    new_docs = [
+        """
+    Reinforcement Learning (RL) is a type of machine learning where an agent learns to make decisions by taking actions in an environment to maximize cumulative rewards. It is inspired by behavioral psychology and involves concepts such as states, actions, rewards, and policies. RL has been successfully applied in various domains, including robotics, game playing, and autonomous systems.
+    """,
+        """
+    Transfer Learning is a machine learning technique where a model developed for one task is reused as the starting point for a model on a second task. It leverages the knowledge gained from the first task to improve learning in the second task, especially when the second task has limited data. Transfer learning is widely used in deep learning applications, particularly in computer vision and natural language processing.
+    """
+    ] 
+
+    new_doc=Document(page_content=new_docs[0], metadata={"source": "manual_addition","topic": "Reinforcement Learning"})
+
+    print("Adding new document to the existing Chroma vector store...")
+    print(new_doc)
+
+    #Split new document into chunks
+    new_text_splitter = text_splitter.split_documents([new_doc])
+    print(f"New document split into {len(new_text_splitter)} chunks.")
+
+    vectorstore.add_documents(new_text_splitter)
+    print("New document added to the Chroma vector store.")
+
+    print(f"Vector store now contains {vectorstore._collection.count()} vectors after adding new document.")
+
+    new_question = "What is Reinforcement Learning?"
+    
+    #LCEL approach
+    result = rag_chain_lcel.invoke({"input": new_question})
+    print(f"Query: {new_question}")
+    print(f"Answer: {result}") 
+
+    
