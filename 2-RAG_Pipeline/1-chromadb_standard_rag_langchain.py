@@ -9,7 +9,10 @@ from langchain_classic.chains import create_retrieval_chain
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_classic.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.prompts import ChatPromptTemplate
-
+from langchain_classic.chains import create_history_aware_retriever
+from langchain_core.prompts import MessagesPlaceholder
+from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
+ 
 ## vectorstores
 from langchain_community.vectorstores import Chroma
 
@@ -246,4 +249,60 @@ if __name__ == "__main__":
     print(f"Query: {new_question}")
     print(f"Answer: {result}") 
 
+#Implement Conversational RAG with Langchain
+
+print("Implementing Conversational RAG with Langchain...")        
+#Creat a prompt that utilised history
+contextualize_q_system_prompt = """Given a chat history and the latest user question 
+  which might reference context in the chat history, formulate a standalone question
+  which can be understood without the chat history. Do NOT answer the question, just 
+  formulate it if needed and otherwise return the question as is."""
     
+
+contextualize_q_prompt = ChatPromptTemplate.from_messages([
+    ("system", contextualize_q_system_prompt),
+    MessagesPlaceholder(variable_name="history"),
+    ("human", "{input}")])
+
+#Create history aware retriever 
+history_aware_retriever = create_history_aware_retriever(
+    llm=llm,
+    retriever=retriever,
+    prompt=contextualize_q_prompt
+)
+
+#Create a new document chain with history
+qa_system_prompt = """You are an assistant for question-answering tasks.
+Use the following pieces of retrieved context to answer the question.
+If you don't know the answer, just say that you don't know.
+Use three sentences maximum and keep the answer concise.
+Context: {context}
+"""
+
+qa_prompt = ChatPromptTemplate.from_messages([
+    ("system", qa_system_prompt),
+    MessagesPlaceholder(variable_name="history"),
+    ("human", "{input}")])
+
+question_answering_chain = create_stuff_documents_chain(
+    llm=llm,
+    prompt=qa_prompt
+)
+
+conversational_rag_chain = create_retrieval_chain(
+    history_aware_retriever,
+    question_answering_chain
+)
+
+chat_history = []
+
+#First Question
+result1 = conversational_rag_chain.invoke({"input": "What is Transfer Learning?", "history": chat_history})
+print(f"Question: What is Transfer Learning?")
+print(f"Answer: {result1['answer']}")
+chat_history.append({"role": "user", "content": "What is Transfer Learning?"})
+
+
+
+
+
