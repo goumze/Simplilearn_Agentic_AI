@@ -302,6 +302,13 @@ print(f"Question: What is Transfer Learning?")
 print(f"Answer: {result1['answer']}")
 chat_history.append({"role": "user", "content": "What is Transfer Learning?"})
 
+#Second Question referencing the first
+result2 = conversational_rag_chain.invoke({"input": "How is it used in NLP?", "history": chat_history})
+print(f"Question: How is it used in NLP?")
+print(f"Answer: {result2['answer']}")
+chat_history.append({"role": "user", "content": "How is it used in NLP?"})
+
+
 
 
 
