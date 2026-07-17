@@ -106,6 +106,36 @@ for idx, chunk in enumerate(chunks):
 # The chunks generated here can be used as input for a RAG (Retrieval-Augmented Generation) pipeline. Each chunk can be treated as a separate document for retrieval, allowing the RAG
 #    model to access relevant information from the text when generating responses. Adjusting the chunking strategy can significantly impact the quality of the retrieved information and, consequently, the generated output.
 
+class ThresholdSemanticChunker:
+    def __init__(self,model_name="all-MiniLM-L6-v2", threshold=0.5, min_chunk_size=2, max_chunk_size=10):
+        self.model = SentenceTransformer(model_name)
+        self.threshold = threshold
+        self.min_chunk_size = min_chunk_size
+        self.max_chunk_size = max_chunk_size
+
+    def split(self,text:str):
+        sentences = [s.strip() for s in text.split("\n") if s.strip()]
+        embeddings = self.model.encode(sentences)
+        chunks = []
+        current_chunk = [sentences[0]]
+
+        for i in range(1, len(sentences)):
+            similarity = cosine_similarity([embeddings[i]], [embeddings[i-1]])[0][0]
+            if similarity >= self.threshold:
+                current_chunk.append(sentences[i])
+            else:
+                if len(current_chunk) >= self.min_chunk_size:
+                    chunks.append(" ".join(current_chunk))
+                    current_chunk = [sentences[i]]
+                else:
+                    current_chunk.append(sentences[i])
+
+        if current_chunk:
+            chunks.append(" ".join(current_chunk))
+
+        return chunks
+    
+    
 
 
 
