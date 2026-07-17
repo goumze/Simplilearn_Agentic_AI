@@ -3,6 +3,13 @@ load_dotenv()
 
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
+from langchain.schema import Document
+from langchain.vectorstores import FAISS
+from langchain.embeddings import HuggingFaceEmbeddings, OpenAIEmbeddings
+from langchain.chat_models import init_chat_model
+from langchain.schema.runnable import RunnableLambda, RunnableMap
+from langchain.prompts import PromptTemplate
+from langchain_core.output_parsers import StructuredOutputParser
 import numpy as np
 
 #Initialize the embedding model
@@ -94,6 +101,11 @@ for idx, chunk in enumerate(chunks):
 # 2. Increase min_chunk_size to ensure minimum quality
 # 3. Decrease min_chunk_size if too few chunks are created
 #========================================
+
+#RAG Pipeline Integration Note:
+# The chunks generated here can be used as input for a RAG (Retrieval-Augmented Generation) pipeline. Each chunk can be treated as a separate document for retrieval, allowing the RAG
+#    model to access relevant information from the text when generating responses. Adjusting the chunking strategy can significantly impact the quality of the retrieved information and, consequently, the generated output.
+
 
 
 

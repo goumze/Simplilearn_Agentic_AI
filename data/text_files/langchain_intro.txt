@@ -1,0 +1,5 @@
+Langchain is a framework for building applicatin with LLMs.
+Langchain provides modular abstractions to combine LLMs with tools like OpenAI and Pinecone.
+You can create chains, agents, memory, and retrievers.
+The Eiffel Tower is located in Paris.
+France is popular tourist destination.
