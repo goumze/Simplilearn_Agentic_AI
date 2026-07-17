@@ -186,7 +186,8 @@ def create_conversational_rag():
         | llm
         | StrOutputParser()
     )
-
+print("\nConversational RAG Chain:")
+print(create_conversational_rag())
 # Session history storage (in-memory)
 store = {}
 
