@@ -17,6 +17,7 @@ class ReportState(TypedDict):
 
 def setup_logger() -> logging.Logger:
     """Configure and return a logger for orchestration tracing."""
+    print("""Configure and return a logger for orchestration tracing.""")
     logger = logging.getLogger('report_orchestration')
     if logger.handlers:
         return logger
@@ -46,6 +47,7 @@ def planner_agent(state: ReportState) -> ReportState:
     """
     Planner agent that generates a list of sections for the report based on the topic.
     """
+    print("""Planner agent that generates a list of sections for the report based on the topic.""")
     topic = state['topic']
     logger.info('[planner] started | topic="%s"', topic)
     planning_prompt = f"""
@@ -70,6 +72,7 @@ def write_section(section_title: str, topic: str) -> str:
     """
     Helper function to write a single section
     """
+    print("""Helper function to write a single section""")
     if any(keyword in section_title.lower() for keyword in ['introduction', 'background', 'analysis', 'current']):
         focus = 'research-backed information and analysis'
         tone = 'professional and factual'
@@ -100,6 +103,7 @@ def writer_coordinator(state: ReportState) -> ReportState:
     """
     Coordinates the writing of all sections
     """
+    print("""Coordinates the writing of all sections""")
     topic = state['topic']
     sections = state['sections']
     section_drafts = {}
@@ -118,6 +122,7 @@ def compiler_agent(state: ReportState) -> ReportState:
     """
     Compiles the final report from the section drafts
     """
+    print("""Compiles the final report from the section drafts""")
     topic = state['topic']
     section_drafts = state['section_drafts']
     sections = state['sections']
