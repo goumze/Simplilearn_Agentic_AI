@@ -1,0 +1,139 @@
+import os
+from typing import TypedDict, List, Dict, Any
+from dotenv import load_dotenv
+from langgraph.graph import StateGraph, END
+from langchain_openai import ChatOpenAI
+from langchain_core.messages import HumanMessage
+
+load_dotenv(override=True)  # Load environment variables from .env file
+
+class ReportState(TypedDict):
+    topic: str
+    sections: List[str]
+    section_drafts: Dict[str, str]
+    final_report: str
+
+#Initialize the LLM
+llm = ChatOpenAI(model='gpt-4o-mini')
+
+
+def planner_agent(state: ReportState) -> ReportState:
+    """
+    Planner agent that generates a list of sections for the report based on the topic.
+    """
+    topic = state['topic']
+    planning_prompt = f"""
+    You are a report planning expert. Given the topic: "{topic}"
+    
+    Create a logical outline with 3-4 main sections for a comprehensive report.
+    Return only the section titles, one per line, without numbering.
+    
+    Example format:
+    Introduction and Background
+    Current State Analysis
+    Future Implications
+    Conclusion and Recommendations
+    """
+    response = llm.invoke([HumanMessage(content=planning_prompt)])
+    sections = [line.strip() for line in response.content.strip().split("\n") if line.strip()]
+    return {**state, 'sections': sections}
+
+def write_section(section_title: str, topic: str) -> str:
+    """
+    Helper function to write a single section
+    """
+    if any(keyword in section_title.lower() for keyword in ['introduction', 'background', 'analysis', 'current']):
+        focus = 'research-backed information and analysis'
+        tone = 'professional and factual'
+    else:
+        focus = 'strategic insights and actionable recommendations'
+        tone = 'forward-thinking and suggestive'
+
+    writer_prompt = f"""
+    You are an expert report writer. Write a detailed section for a report on "{topic}"
+
+    Section to write: "{section_title}"
+
+    Requirements:
+    - Write 2-3 substantial paragraphs.
+    - Focus on {focus}.
+    - Use a {tone}
+    - Do not include the section title itself in your response, just the content
+    """
+    response = llm.invoke([HumanMessage(content=writer_prompt)])
+    return response.content.strip()
+
+def writer_coordinator(state: ReportState) -> ReportState:
+    """
+    Coordinates the writing of all sections
+    """
+    topic = state['topic']
+    sections = state['sections']
+    section_drafts = {}
+
+    #Write each section
+    for section_title in sections:
+        section_content = write_section(section_title, topic)
+        section_drafts[section_title] = section_content
+
+    return {**state,'section_drafts':section_drafts}
+
+def compiler_agent(state: ReportState) -> ReportState:
+    """
+    Compiles the final report from the section drafts
+    """
+    topic = state['topic']
+    section_drafts = state['section_drafts']
+    sections = state['sections']
+
+    final_report_content = f'# Report: {topic}\n\n'
+
+    #Compile Sections in the planned order
+    for section_title in sections:
+        if section_title in section_drafts:
+            final_report_content += f'## {section_title}\n\n{section_drafts[section_title]}\n\n'
+    
+    return {**state, 'final_report': final_report_content}
+
+#----Graph Definition----
+workflow = StateGraph(ReportState)
+
+# Add Nodes
+workflow.add_node('planner', planner_agent)
+workflow.add_node('writer_coordinator', writer_coordinator)
+workflow.add_node('compiler', compiler_agent)
+
+#Set the entry point
+workflow.set_entry_point('planner')
+
+#Add edge (simple sequential flow)
+workflow.add_edge('planner', 'writer_coordinator')
+workflow.add_edge('writer_coordinator', 'compiler')
+workflow.add_edge('compiler', END)
+
+#Compile the graph
+app = workflow.compile()
+
+
+# --- Execution Functions ---
+
+
+def generate_report(topic: str) -> str:
+    """Generate a report using the sequential workflow."""
+    initial_state = {'topic': topic, 'sections': [], 'section_drafts': {}, 'final_report': ''}
+    result = app.invoke(initial_state, debug=True)
+    return result['final_report']
+
+
+if __name__ == '__main__':
+    topic = 'The Impact of Artificial Intelligence on Healthcare'
+
+    print(f'Generating report on: {topic}...')
+    report = generate_report(topic)
+    print(report)
+
+    # For async version:
+    # import asyncio
+    # report_async = asyncio.run(generate_report_async(topic))
+    # print(report_async)
+
