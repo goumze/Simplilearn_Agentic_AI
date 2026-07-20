@@ -20,3 +20,5 @@ openpyxl
 msoffcrypto-tool
 jq
 matplotlib
+rank_bm25
+langchain-huggingface
