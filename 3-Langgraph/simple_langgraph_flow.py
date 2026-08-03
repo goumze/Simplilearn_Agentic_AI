@@ -47,8 +47,12 @@ if __name__ == "__main__":
     initial_state: State = {"graph_info": "My name is Goutam. "}
     result = graph_builder.invoke(initial_state)
     print(f"Final graph info: {result['graph_info']}")
+    print("Using Streaming approach")
+    for event in graph_builder.stream(initial_state):
+        print(f"Event: {event}")
     #View the graph
     display(Markdown(f"```mermaid\n{graph_builder.get_graph().draw_mermaid()}\n```"))
+
 
 
     

@@ -25,10 +25,10 @@ graph.add_node("superBot", superBot)
 #Add edges
 graph.add_edge(START, "superBot")
 graph.add_edge("superBot", END)
+graph_builder = graph.compile()
 
 if __name__ == "__main__":
     #Invoke the graph
     initial_state: State = {"messages": ["Hi, My name is Goutam, and I like Cricket."]}
-    graph_builder = graph.compile()
     result = graph_builder.invoke(initial_state)
     print(f"Final messages: {result['messages']}")
