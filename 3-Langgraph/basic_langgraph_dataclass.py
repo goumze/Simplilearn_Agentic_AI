@@ -20,9 +20,10 @@ class DataclassState:
 def play_game(state: TypedDictState | DataclassState):
     print("--Play game node has been activated--")
     if isinstance(state, DataclassState):
-        return {"name": state.name + " want to play"}
+        # Preserve game so conditional routing always has the field it needs.
+        return {"name": state.name + " want to play", "game": state.game}
     else:
-        return {"name": state["name"] + " want to play"}
+        return {"name": state["name"] + " want to play", "game": state["game"]}
 
 def cricket(state: TypedDictState | DataclassState):
     print("--Cricket node has been activated--")
@@ -34,7 +35,7 @@ def badminton(state: TypedDictState | DataclassState):
 
 def route_to_game(state: TypedDictState | DataclassState) -> Literal["cricket", "badminton"]:
     """Route to game node based on state's game field."""
-    game = state.game if isinstance(state, DataclassState) else state["game"]
+    game = state.game if isinstance(state, DataclassState) else state.get("game")
     if game == "Cricket":
         return "cricket"
     else:
@@ -42,7 +43,7 @@ def route_to_game(state: TypedDictState | DataclassState) -> Literal["cricket", 
 
 #Flow of the graph
 
-builder = StateGraph(TypedDictState)
+builder = StateGraph(TypedDictState | DataclassState)
 builder.add_node("playgame", play_game)
 builder.add_node("cricket", cricket)
 builder.add_node("badminton", badminton)
