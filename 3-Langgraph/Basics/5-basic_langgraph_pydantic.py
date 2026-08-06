@@ -7,7 +7,7 @@ class State(BaseModel):
 ##Node function
 def example_node(state: State):
     print("--Example node has been activated--")
-    return {"name": "Hello"}
+    return {"name": "Hello " + state.name + "!"}
 
 builder = StateGraph(State)
 builder.add_node("example_node", example_node)
