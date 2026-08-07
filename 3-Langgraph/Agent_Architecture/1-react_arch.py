@@ -4,6 +4,12 @@ from langchain_tavily import TavilySearch
 from langchain_openai import ChatOpenAI
 from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage, ToolMessage
+from typing_extensions import TypedDict
+from typing import Annotated
+from langgraph.graph.message import add_messages
+from langgraph.graph import StateGraph, START, END
+from langgraph.prebuilt import ToolNode
+from langgraph.prebuilt import tools_condition
 load_dotenv()
 
 # Initialize tools at module level for LangGraph
@@ -119,12 +125,58 @@ def run_tools_and_respond(llm_with_tools, user_query: str) -> str:
     return first_response.content
 
 
-if __name__ == "__main__":
-    llm = ChatOpenAI(model_name="gpt-4o")
-    llm_with_tools = llm.bind_tools(tools)
+class State(TypedDict):
+    messages: Annotated[list[HumanMessage | ToolMessage], add_messages]
 
-    response_text = run_tools_and_respond(llm_with_tools, "What is latest NASDAQ news ?")
-    print("response:", response_text)
+llm = ChatOpenAI(model_name="gpt-4o")
+llm_with_tools = llm.bind_tools(tools)
+
+
+###Node Definition
+def tool_calling_llm(state: State):
+    return {"messages":[llm_with_tools.invoke(state["messages"])]}
+
+#Build Graph
+builder = StateGraph(State)
+builder.add_node("tool_calling_llm", tool_calling_llm)
+builder.add_node("tools", ToolNode(tools, handle_tool_errors=True))
+
+builder.add_edge(START, "tool_calling_llm")
+builder.add_conditional_edges(
+    "tool_calling_llm",
+    tools_condition,
+    {
+        "tools": "tools",
+        "__end__": END,
+    }
+)
+builder.add_edge("tools", "tool_calling_llm")
+graph = builder.compile()
+
+
+if __name__ == "__main__":
+    # llm = ChatOpenAI(model_name="gpt-4o")
+    # llm_with_tools = llm.bind_tools(tools)
+
+    # response_text = run_tools_and_respond(llm_with_tools, "What is latest NASDAQ news ?")
+    # print("response:", response_text)
+
+    message = graph.invoke({"messages":[HumanMessage(content="What is latest NASDAQ news ?")]})
+    for m in message['messages']:
+        m.pretty_print()
+
+    message = graph.invoke({"messages":[HumanMessage(content="What is machine learning ?")]})
+    for m in message['messages']:
+        m.pretty_print()
+
+    message = graph.invoke({"messages":[HumanMessage(content="Provide me the top 10 recent AI news for March 3rd 2026.")]})
+    for m in message['messages']:
+        m.pretty_print()
+
+    message = graph.invoke({"messages":[HumanMessage(content="Provide me the top 10 recent AI news for March 3rd 2026, add then multiply by 10")]})
+    for m in message['messages']:
+        m.pretty_print()
+
 
 
 
