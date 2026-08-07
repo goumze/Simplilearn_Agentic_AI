@@ -7,6 +7,7 @@ from langgraph.graph.message import AnyMessage, add_messages
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.memory import MemorySaver
+import asyncio
 
 load_dotenv()
 
@@ -20,6 +21,13 @@ memory = MemorySaver()
 #Node
 def superbot(state: State):
     return {"messages":[llm.invoke(state["messages"])]}
+
+#Async function for handling async streaming
+async def async_streaming():
+    config4 = {"configurable": {"thread_id":"4"}}
+    print("\n=== Async Streaming response for thread_id 4 ===")
+    async for chunk in graph_builder.astream_events({"messages":[HumanMessage(content="Hi My name is Goutam. I like Cricket.")]}, config=config4, version="v2"):
+        print("chunk:", chunk)
 
 #Workflow
 graph=StateGraph(State)
@@ -46,3 +54,6 @@ if __name__ == "__main__":
     print("\n=== Streaming response for thread_id 3 ===")
     for chunk in graph_builder.stream({"messages":[HumanMessage(content="Hi My name is Goutam. I like Cricket.")]}, config=config3, stream_mode="values"):
         print("chunk:", chunk)
+
+    # Run async streaming
+    asyncio.run(async_streaming())
