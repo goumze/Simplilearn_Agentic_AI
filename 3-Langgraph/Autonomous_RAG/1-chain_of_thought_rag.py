@@ -199,26 +199,51 @@ def main():
         "How does LangGraph compare to LangChain?",
         "What are the key features of LangGraph?"
     ]
+
+    negative_test_queries = [
+        "What is the capital of Mars?",
+        "How does LangGraph compare to a toaster?",
+        "What are the key features of a unicorn?"
+    ]
     
     # Process each query through the graph
-    for query in test_queries:
-        print("\n" + "="*80)
-        print(f"Query: {query}")
-        print("="*80)
+    # for query in test_queries:
+    #     print("\n" + "="*80)
+    #     print(f"Query: {query}")
+    #     print("="*80)
         
-        initial_state = {
-            "messages": [HumanMessage(content=query)],
-            "retrieved_docs": [],
-            "reasoning": "",
-            "answer": ""
-        }
+    #     initial_state = {
+    #         "messages": [HumanMessage(content=query)],
+    #         "retrieved_docs": [],
+    #         "reasoning": "",
+    #         "answer": ""
+    #     }
         
-        result = graph.invoke(initial_state)
+    #     result = graph.invoke(initial_state)
         
-        print(f"\nRetrieval Count: {len(result['retrieved_docs'])}")
-        print(f"Retrieved Sources: {len(result['retrieved_docs'])}")
-        print(f"\nReasoning & Answer:\n{result['answer']}")
-        print("="*80)
+    #     print(f"\nRetrieval Count: {len(result['retrieved_docs'])}")
+    #     print(f"Retrieved Sources: {len(result['retrieved_docs'])}")
+    #     print(f"\nReasoning & Answer:\n{result['answer']}")
+    #     print("="*80)
+
+    for query in negative_test_queries:
+            print("\n" + "="*80)
+            print(f"Query: {query}")
+            print("="*80)
+            
+            initial_state = {
+                "messages": [HumanMessage(content=query)],
+                "retrieved_docs": [],
+                "reasoning": "",
+                "answer": ""
+            }
+            
+            result = graph.invoke(initial_state)
+            
+            print(f"\nRetrieval Count: {len(result['retrieved_docs'])}")
+            print(f"Retrieved Sources: {len(result['retrieved_docs'])}")
+            print(f"\nReasoning & Answer:\n{result['answer']}")
+            print("="*80)    
 
 
 if __name__ == "__main__":
