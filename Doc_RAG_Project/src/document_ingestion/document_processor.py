@@ -82,7 +82,7 @@ class DocumentProcessor:
         """
         return self.text_splitter.split_documents(documents)
 
-    def process_url(self,urls:List[str])-> List[Document]:
+    def process_urls(self,urls:List[str])-> List[Document]:
         """
         Complete pipeline to load and split documents
 

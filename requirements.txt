@@ -3,6 +3,7 @@ langchain-classic
 langchain-core
 langchain-groq
 langchain-text-splitters
+langgraph
 faiss-cpu
 tiktoken
 langchain-community

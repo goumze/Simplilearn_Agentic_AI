@@ -1,11 +1,8 @@
 """ RAG state definition for LangGraph """
 
-from typing import List
-from pydantic import BaseModel
-from langchain_core.documents import Document
+import uuid
 
-class RAGState(BaseModel):
-    """State objects for RAG workflow"""
-    question: str
-    retrieved_docs: List[Document] = []
-    answer: str = ""
+# Simple state type annotation for LangGraph
+class RAGState(dict):
+    """State objects for RAG workflow - using dict to avoid type hint issues"""
+    pass

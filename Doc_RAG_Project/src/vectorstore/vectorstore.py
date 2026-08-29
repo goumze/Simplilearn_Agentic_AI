@@ -9,7 +9,7 @@ from langchain_core import documents
 from langchain_openai import OpenAIEmbeddings
 from langchain_core.documents import Document
 
-class Vectorstore:
+class VectorStore:
     """Manages vector store application"""
 
     def __init__(self):
@@ -17,15 +17,16 @@ class Vectorstore:
         self.vectorstore = None
         self.retriever = None
 
-    def create_retriever(self, documents: List[Document]):
+    def create_vectorstore(self, documents: List[Document]):
         """
         Create vector store from documents
 
         Args:
-        documents (List[Document]): List of documents to create the vector store from.
+            documents (List[Document]): List of documents to create the vector store from.
         """
         self.vectorstore = FAISS.from_documents(documents, self.embeddings)
         self.retriever = self.vectorstore.as_retriever()
+        return self.retriever
 
     def get_retriever(self):
         """
