@@ -1,10 +1,11 @@
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
-$RequirementsFile = Join-Path $ScriptDir "requirements.txt"
+$RequirementsFile = Join-Path $ScriptDir "backend\requirements.txt"
 
 if (-not (Test-Path $RequirementsFile)) {
     Write-Error "Requirements file not found: $RequirementsFile"
     exit 1
 }
 
-python -m pip install --upgrade pip
-python -m pip install -r "$RequirementsFile"
+$PythonExe = "C:\Users\gm_mi\AppData\Local\Programs\Python\Python312\python.exe"
+& $PythonExe -m pip install --upgrade pip
+& $PythonExe -m pip install -r "$RequirementsFile"
