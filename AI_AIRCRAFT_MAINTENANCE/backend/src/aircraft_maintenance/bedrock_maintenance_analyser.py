@@ -12,8 +12,10 @@ import json
 import logging
 from pathlib import Path
 from typing import Any, Protocol
+import os
 
 from botocore.exceptions import BotoCoreError, ClientError
+import pypdf
 
 
 logger = logging.getLogger(__name__)
@@ -44,31 +46,55 @@ class AircraftMaintenanceAnalyzer:
         self.manual_pdf_path = Path(manual_pdf_path)
         self.temperature = temperature
         self.max_tokens = max_tokens
+        self._manual_text = None  # Cache extracted PDF text
 
-    def load_manual(self) -> bytes:
-        """Load the complete aircraft maintenance manual PDF as bytes."""
+    def _extract_pdf_text(self, max_chars: int = 50000) -> str:
+        """Extract and cache PDF text content."""
+        if self._manual_text is not None:
+            return self._manual_text
+        
         if not self.manual_pdf_path.exists():
             raise FileNotFoundError(
                 f"Maintenance manual not found: {self.manual_pdf_path}"
             )
-
+        
         if self.manual_pdf_path.suffix.lower() != ".pdf":
             raise ValueError(
                 "Maintenance manual must be a PDF file. "
                 f"Received: {self.manual_pdf_path}"
             )
-
-        logger.info("Loading maintenance manual: %s", self.manual_pdf_path)
-        return self.manual_pdf_path.read_bytes()
+        
+        logger.info("Extracting text from PDF: %s", self.manual_pdf_path)
+        try:
+            pdf_reader = pypdf.PdfReader(self.manual_pdf_path)
+            text = ""
+            
+            for page_num, page in enumerate(pdf_reader.pages):
+                text += f"\n--- Page {page_num + 1} ---\n"
+                text += page.extract_text()
+            
+            # Limit to avoid excessive tokens
+            if len(text) > max_chars:
+                text = text[:max_chars] + "\n\n... [PDF content truncated for length]"
+            
+            self._manual_text = text
+            logger.info("Extracted %d characters from PDF", len(text))
+            return text
+        except Exception as e:
+            logger.error("Failed to extract PDF text: %s", e)
+            raise RuntimeError(f"Unable to extract text from PDF: {e}") from e
 
     def build_prompt(self, engineering_analytics: dict[str, Any]) -> str:
-        """Build the model prompt from engineering analytics JSON."""
+        """Build the model prompt with embedded PDF text and analytics JSON."""
         analytics_json = json.dumps(
             engineering_analytics,
             indent=2,
             ensure_ascii=False,
             default=str,
         )
+        
+        # Extract PDF text and embed in prompt
+        pdf_text = self._extract_pdf_text(max_chars=50000)
 
         return f"""
 You are a Senior Aircraft Maintenance Engineer.
@@ -77,13 +103,20 @@ Your task is to generate a professional aircraft maintenance engineering report
 using two inputs:
 
 1. Engineering Analytics JSON provided below.
-2. The attached internal Aircraft Maintenance Manual PDF.
+2. Aircraft Maintenance Manual content provided below.
+
+AIRCRAFT MAINTENANCE MANUAL CONTENT:
+==========================================
+{pdf_text}
+==========================================
+
+ENGINEERING ANALYTICS:
 
 Important rules:
 - Compare every engineering parameter in the analytics JSON against the
   thresholds, safe operating limits, risk matrix, decision trees, inspection
-  procedures, failure modes, and maintenance actions defined in the manual.
-- Use only thresholds and maintenance procedures found in the attached manual.
+  procedures, failure modes, and maintenance actions defined in the manual above.
+- Use only thresholds and maintenance procedures found in the manual content.
 - Do not invent thresholds, limits, failure modes, or maintenance actions.
 - If a required threshold or procedure is unavailable in the manual, state that
   explicitly in the JSON output.
@@ -174,22 +207,15 @@ Return exactly one JSON object with this schema:
 """.strip()
 
     def analyze(self, engineering_analytics: dict[str, Any]) -> dict[str, Any]:
-        """Generate a structured AI maintenance report from analytics and PDF."""
+        """Generate a structured AI maintenance report from analytics with embedded PDF text."""
         prompt = self.build_prompt(engineering_analytics)
-        manual_bytes = self.load_manual()
 
         conversation = [
             {
                 "role": "user",
                 "content": [
-                    {"text": prompt},
-                    {
-                        "document": {
-                            "format": "pdf",
-                            "name": self._document_name(),
-                            "source": {"bytes": manual_bytes},
-                        }
-                    },
+                    {"text": prompt}
+                    # PDF text is now embedded in the prompt above
                 ],
             }
         ]
@@ -213,9 +239,7 @@ Return exactly one JSON object with this schema:
         response_text = self._extract_response_text(response)
         return self._parse_json_response(response_text)
 
-    def _document_name(self) -> str:
-        """Return a Bedrock-safe document name."""
-        return self.manual_pdf_path.stem.replace("_", " ").replace("-", " ")
+
 
     @staticmethod
     def _extract_response_text(response: dict[str, Any]) -> str:
@@ -240,8 +264,18 @@ Return exactly one JSON object with this schema:
     @staticmethod
     def _parse_json_response(response_text: str) -> dict[str, Any]:
         """Parse and validate the JSON-only model response."""
+        # Strip markdown code blocks if present
+        text = response_text.strip()
+        if text.startswith("```json"):
+            text = text[7:]  # Remove ```json
+        if text.startswith("```"):
+            text = text[3:]  # Remove ```
+        if text.endswith("```"):
+            text = text[:-3]  # Remove trailing ```
+        text = text.strip()
+        
         try:
-            parsed = json.loads(response_text)
+            parsed = json.loads(text)
         except json.JSONDecodeError as exc:
             logger.error("Model returned non-JSON response: %s", response_text)
             raise ValueError("Bedrock response was not valid JSON") from exc
@@ -257,6 +291,10 @@ if __name__ == "__main__":
 
     logging.basicConfig(level=logging.INFO)
 
+    aws_bearer_token_bedrock = os.environ["AWS_BEARER_TOKEN_BEDROCK"] 
+    aws_access_key_id = os.environ["AWS_ACCESS_KEY_ID"] 
+    aws_secret_access_key = os.environ["AWS_SECRET_ACCESS_KEY"] 
+    
     base_dir = Path(__file__).resolve().parents[2]
     manual_pdf_path = base_dir / "data" / "AeroTech_ATX200_Maintenance_Manual.pdf"
 
@@ -440,7 +478,7 @@ if __name__ == "__main__":
     bedrock_client = boto3.client("bedrock-runtime", region_name="ap-south-1")
     analyzer = AircraftMaintenanceAnalyzer(
         bedrock_client=bedrock_client,
-        model_id="amazon.nova-pro-v1:0",
+        model_id="google.gemma-3-4b-it",
         manual_pdf_path=manual_pdf_path,
         temperature=0.2,
         max_tokens=2000,

@@ -19,7 +19,7 @@ from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
-from src.aircraft_maintenance.bedrock_maintenance_analyzer import AircraftMaintenanceAnalyzer
+from src.aircraft_maintenance.bedrock_maintenance_analyser import AircraftMaintenanceAnalyzer
 from src.aircraft_maintenance.engineering_analytics import AircraftEngineeringAnalytics
 
 # Load environment variables from .env file
@@ -147,10 +147,12 @@ def maintenance_prediction(payload: dict[str, Any]) -> dict[str, Any]:
         )
 
     try:
-        aws_region = os.getenv("AWS_REGION", "us-east-1")
+        aws_region = os.getenv("AWS_REGION", "ap-south-1")
         aws_access_key = os.getenv("AWS_ACCESS_KEY_ID")
         aws_secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
-        bedrock_model_id = os.getenv("BEDROCK_MODEL_ID", "amazon.nova-pro-v1:0")
+        aws_bearer_token_bedrock = os.environ["AWS_BEARER_TOKEN_BEDROCK"] 
+        aws_access_key_id = os.environ["AWS_ACCESS_KEY_ID"] 
+        bedrock_model_id = os.getenv("BEDROCK_MODEL_ID", "google.gemma-3-4b-it")
 
         boto3_kwargs = {
             "service_name": "bedrock-runtime",
@@ -160,7 +162,7 @@ def maintenance_prediction(payload: dict[str, Any]) -> dict[str, Any]:
         # Only add explicit credentials if they are provided in .env
         # Otherwise, boto3 will fall back to default credential providers (e.g., ~/.aws/credentials)
         if aws_access_key and aws_access_key != "YOUR_ACCESS_KEY" and aws_secret_key and aws_secret_key != "YOUR_SECRET_KEY":
-            boto3_kwargs["aws_access_key_id"] = aws_access_key
+            boto3_kwargs["aws_access_key_id"] = aws_access_key_id
             boto3_kwargs["aws_secret_access_key"] = aws_secret_key
 
         bedrock_client = boto3.client(**boto3_kwargs)

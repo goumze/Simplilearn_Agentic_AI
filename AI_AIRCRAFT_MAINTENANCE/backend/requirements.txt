@@ -5,3 +5,4 @@ uvicorn
 openpyxl
 python-multipart
 python-dotenv
+pypdf
