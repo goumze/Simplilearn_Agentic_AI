@@ -71,3 +71,233 @@ kubectl get svc -A
 kubectl get ingressclass
 kubectl get events --sort-by=.lastTimestamp
 
+
+# Accessing the EKS Auto Mode Cluster with AWS CLI and kubectl
+
+## 1. Configure AWS CLI
+
+Verify that AWS CLI is installed:
+
+aws --version
+
+Configure an IAM user profile:
+
+aws configure
+
+Enter the AWS access key, secret access key, default region, and output format. For example:
+
+Default region name: us-east-1
+Default output format: json
+
+Verify the AWS identity used by the CLI:
+
+aws sts get-caller-identity
+
+If the cluster is accessed through AWS IAM Identity Center (SSO), configure and sign in with a named profile:
+
+aws configure sso
+aws sso login --profile my-eks
+
+Use that profile in PowerShell:
+
+$env:AWS_PROFILE = "my-eks"
+
+## 2. Connect kubectl to EKS
+
+Set the cluster name and AWS Region. Update these values for the environment:
+
+$CLUSTER_NAME = "aircraft-maintenance"
+$AWS_REGION = "us-east-1"
+
+Create or update the local kubeconfig entry:
+
+aws eks update-kubeconfig `
+  --name $CLUSTER_NAME `
+  --region $AWS_REGION
+
+For a named AWS CLI profile:
+
+aws eks update-kubeconfig `
+  --name $CLUSTER_NAME `
+  --region $AWS_REGION `
+  --profile my-eks
+
+Confirm the active Kubernetes context and access:
+
+kubectl config current-context
+kubectl cluster-info
+kubectl get namespaces
+kubectl get nodes
+
+The IAM principal running `aws eks update-kubeconfig` must have permission to access the cluster. If kubectl returns Unauthorized or Forbidden, an EKS administrator must grant the principal an EKS access entry and the required Kubernetes permissions.
+
+## 3. View Cluster Resources
+
+View nodes, including their private IP addresses and instance details:
+
+kubectl get nodes -o wide
+
+Inspect one node in detail:
+
+kubectl describe node <node-name>
+
+View Auto Mode scheduling resources:
+
+kubectl get nodepools
+kubectl get nodeclasses
+
+View workloads and networking resources in every namespace:
+
+kubectl get pods -A
+kubectl get deployments -A
+kubectl get services -A
+kubectl get ingress -A
+
+View cluster events ordered by the most recent event:
+
+kubectl get events -A --sort-by=.lastTimestamp
+
+## 4. Deploy a Test Pod
+
+Create a temporary nginx pod:
+
+kubectl run nginx `
+  --image=nginx `
+  --port=80
+
+Check the pod status and placement:
+
+kubectl get pod nginx -o wide
+kubectl describe pod nginx
+kubectl logs nginx
+
+Delete the test pod when finished:
+
+kubectl delete pod nginx
+
+## 5. Deploy the Aircraft Maintenance Backend
+
+The backend deployment expects an image value and an existing Secret named `aws-credentials`. Replace `${BACKEND_IMAGE}` in backend-deployment.yaml with the image URI in Amazon ECR before applying it.
+
+Create the AWS credentials Secret only if the application requires credentials inside the pod:
+
+kubectl create secret generic aws-credentials `
+  --from-literal=AWS_ACCESS_KEY_ID="<access-key-id>" `
+  --from-literal=AWS_SECRET_ACCESS_KEY="<secret-access-key>" `
+  --from-literal=AWS_DEFAULT_REGION="us-east-1"
+
+Apply the backend Deployment:
+
+kubectl apply -f .\kubernetes\backend-deployment.yaml
+
+Check the Deployment and its pods:
+
+kubectl get deployment aircraft-maintenance
+kubectl get pods -l app=aircraft-maintenance -o wide
+kubectl logs -l app=aircraft-maintenance
+
+For production workloads, prefer IAM roles for service accounts or EKS Pod Identity over storing long-lived AWS access keys in a Kubernetes Secret.
+
+## 6. Deploy Kubernetes Resources from YAML
+
+Apply a manifest:
+
+kubectl apply -f .\service-and-ingress.yaml
+
+Show the resources created by the manifest:
+
+kubectl get all
+kubectl get ingress
+
+Remove resources defined in a manifest:
+
+kubectl delete -f .\service-and-ingress.yaml
+
+## 7. Understand Service and ALB Results in EKS Auto Mode
+
+A Service with `type: LoadBalancer` creates a Network Load Balancer in EKS Auto Mode. Its hostname is shown by `kubectl get svc`.
+
+An Application Load Balancer is created by an `Ingress` using the Auto Mode controller `eks.amazonaws.com/alb`. Its hostname is shown by `kubectl get ingress`, not necessarily by the backend Service.
+
+The backend Service in the ALB manifest should remain `NodePort` or `ClusterIP`; the Ingress is the public HTTP entry point.
+
+Check the ALB status:
+
+kubectl get ingress aircraft-maintenance
+kubectl describe ingress aircraft-maintenance
+kubectl get ingress aircraft-maintenance `
+  -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
+
+Wait for the hostname to be populated:
+
+kubectl get ingress aircraft-maintenance -w
+
+## 8. Troubleshoot Pods, Services, and the ALB
+
+Inspect a failed pod:
+
+kubectl describe pod <pod-name>
+kubectl logs <pod-name>
+
+Inspect the backend Deployment:
+
+kubectl describe deployment aircraft-maintenance
+
+Inspect the Service endpoints and events:
+
+kubectl get endpoints aircraft-maintenance
+kubectl describe service aircraft-maintenance
+
+Inspect Ingress events and controller errors:
+
+kubectl describe ingress aircraft-maintenance
+kubectl get events -A --sort-by=.lastTimestamp
+
+If the Ingress remains pending, verify that:
+
+1. The Ingress uses `ingressClassName: alb`.
+2. The IngressClass controller is `eks.amazonaws.com/alb`.
+3. The referenced Service name and port match the backend.
+4. The pods are Ready and match the Service selector.
+5. Public or private subnets have the tags required by EKS Auto Mode.
+6. The cluster IAM role has the permissions required for EKS Auto Mode load balancing.
+
+View cluster status from AWS:
+
+aws eks describe-cluster `
+  --name $CLUSTER_NAME `
+  --region $AWS_REGION `
+  --query "cluster.{status:status,endpoint:endpoint,version:version}" `
+  --output table
+
+## 9. Useful kubectl Commands
+
+Show the current context:
+
+kubectl config current-context
+
+Switch to a context:
+
+kubectl config use-context <context-name>
+
+Set a default namespace for the current context:
+
+kubectl config set-context --current --namespace=<namespace>
+
+Open a shell in a running container:
+
+kubectl exec -it <pod-name> -- /bin/sh
+
+Forward a local port to a Service for testing:
+
+kubectl port-forward service/aircraft-maintenance 8000:8000
+
+Scale a Deployment:
+
+kubectl scale deployment aircraft-maintenance --replicas=2
+
+Restart a Deployment after a configuration change:
+
+kubectl rollout restart deployment aircraft-maintenance
+kubectl rollout status deployment aircraft-maintenance
+
