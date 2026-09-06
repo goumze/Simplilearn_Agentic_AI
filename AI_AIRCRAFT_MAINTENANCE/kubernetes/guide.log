@@ -1,0 +1,73 @@
+For setting up EKS Cluster:
+https://docs.aws.amazon.com/eks/latest/userguide/automode.html
+
+For Setting up Load Balancer:
+
+https://docs.aws.amazon.com/eks/latest/userguide/auto-elb-example.html
+
+# Guide for setting up an ALB Ingress Controller on EKS
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: aircraft-maintenance
+spec:
+  type: NodePort
+  selector:
+    app: aircraft-maintenance
+  ports:
+    - port: 8000
+      targetPort: 8000
+
+---
+apiVersion: eks.amazonaws.com/v1
+kind: IngressClassParams
+metadata:
+  name: alb
+spec:
+  scheme: internet-facing
+
+---
+apiVersion: networking.k8s.io/v1
+kind: IngressClass
+metadata:
+  name: alb
+spec:
+  controller: eks.amazonaws.com/alb
+  parameters:
+    apiGroup: eks.amazonaws.com
+    kind: IngressClassParams
+    name: alb
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: aircraft-maintenance
+spec:
+  ingressClassName: alb
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: aircraft-maintenance
+                port:
+                  number: 8000
+
+Then check:
+
+kubectl get ingress
+kubectl describe ingress aircraft-maintenance
+kubectl get ingress aircraft-maintenance \
+  -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
+
+
+Also verify the current state:
+
+kubectl get svc -A
+kubectl get ingressclass
+kubectl get events --sort-by=.lastTimestamp
+
