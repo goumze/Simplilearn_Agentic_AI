@@ -8,6 +8,7 @@ faiss-cpu
 tiktoken
 langchain-community
 langchain-openai
+litellm
 langchain-tavily
 chromadb
 sentence-transformers
@@ -30,3 +31,4 @@ wikipedia
 requests
 streamlit
 wikipedia
+langchain-litellm
