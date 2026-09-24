@@ -2,6 +2,8 @@ import time
 import logfire
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from app.config import settings
+from dotenv import load_dotenv
+load_dotenv()
 
 BATCH_SIZE = 50
 _GEMINI_DIM = 3072
@@ -15,7 +17,7 @@ _model_type: str | None = None
 def _probe_gemini():
     """Try one embed call to verify Gemini is reachable. Returns model or None"""
     try:
-        model = GoogleGenerativeAIEmbeddings(model="models/gemini-embeddings-2-preview",google_api_key=settings.GOOGLE_API_KEY)
+        model = GoogleGenerativeAIEmbeddings(model="models/gemini-embeddings-2-preview",google_api_key=settings.GEMINI_API_KEY)
         model.embed_query("probe")
         logfire.info("Gemini embeddings ready (gemini-embedding-2-preview,3072-dim).")
         return model
@@ -52,7 +54,7 @@ def _embed_batch(batch:list[str]) -> list[list[float]]:
     if _model_type == "gemini":
         for attempt in range(4):
             try:
-                return _active_model.embed_query(batch)
+                return _active_model.embed_documents(batch)
             except Exception as e:
                 err = str(e).lower()
                 is_rate_limit = any(x in err for x in ("429","rate","quota","resource_exhausted"))
@@ -73,7 +75,7 @@ def _embed_batch(batch:list[str]) -> list[list[float]]:
 def embed_query(query:str)->list[float]:
     _init()
     if _model_type == "gemini":
-        return _active_model.embed_query([query])
+        return _active_model.embed_query(query)
     return _embed_batch([query])[0].tolist()
 
 
