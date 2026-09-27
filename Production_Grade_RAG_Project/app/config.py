@@ -4,13 +4,38 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class Settings:
+    # --- GEMINI EMBEDDINGS ---
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
+    # --- VECTOR DB (QDRANT) ---
     QDRANT_URL = os.getenv("QDRANT_CLUSTER_ENDPOINT")
     QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
     QDRANT_COLLECTION_NAME = os.getenv("QDRANT_COLLECTION_NAME")
 
+    # --- REASONING ENGINE (GROQ) ---
     GROQ_API_KEY = os.getenv("GROQ_API_KEY")
     GROQ_MODEL = os.getenv("GROQ_MODEL")
     GROQ_FALLBACK_API_KEY = os.getenv("GROQ_FALLBACK_API_KEY")
+
+    #-- OPEN AI ---
+    OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+    OPENAI_MODEL = os.getenv("OPENAI_MODEL")
+    
+    # --- LLM GATEWAY (PORTKEY) ---
+    PORTKEY_API_KEY = os.getenv("PORTKEY_API_KEY")
+    GROQ_SLUG = os.getenv("GROQ_SLUG")
+    GROQ_SLUG_2 = os.getenv("GROQ_SLUG_2")
+
+    # --- OBSERVABILITY ---
+    # LANGSMITH_TRACING = os.getenv("LANGSMITH_TRACING", "true")
+    # LANGSMITH_API_KEY = os.getenv("LANGSMITH_API_KEY")
+    # LANGSMITH_PROJECT = os.getenv("LANGSMITH_PROJECT", "rag_scale_test")
+    # LANGSMITH_ENDPOINT = os.getenv("LANGSMITH_ENDPOINT", "https://api.smith.langchain.com")
+
+    # Apply LangChain environment variables for automatic tracing
+    # os.environ["LANGCHAIN_TRACING_V2"] = os.getenv("LANGSMITH_TRACING", "true")
+    # os.environ["LANGCHAIN_API_KEY"] = os.getenv("LANGSMITH_API_KEY", "")
+    # os.environ["LANGCHAIN_PROJECT"] = os.getenv("LANGSMITH_PROJECT", "rag_scale_test")
+    # os.environ["LANGCHAIN_ENDPOINT"] = os.getenv("LANGSMITH_ENDPOINT", "https://api.smith.langchain.com")
 
 settings = Settings()

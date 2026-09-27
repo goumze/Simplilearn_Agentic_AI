@@ -76,7 +76,7 @@ def embed_query(query:str)->list[float]:
     _init()
     if _model_type == "gemini":
         return _active_model.embed_query(query)
-    return _embed_batch([query])[0].tolist()
+    return _embed_batch([query])[0]
 
 
 def embed_texts(texts: list[str])-> list[list[float]]:
