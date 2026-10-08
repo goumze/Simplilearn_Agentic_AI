@@ -208,15 +208,14 @@ jobs:
           export TF_LOG_PATH=""
           export TF_INPUT=false
           
-          # Get JSON output and skip first line (terraform wrapper echoes the command)
-          # Use tail -n +2 to skip the command echo line, leaving only the JSON
-          OUTPUTS=$(terraform output -json 2>/dev/null | tail -n +2)
+          # Get JSON output, using sed to start from first opening brace
+          # This skips any wrapper output before the actual JSON
+          OUTPUTS=$(terraform output -json 2>/dev/null | sed -n '/^{/,$p')
           
           # Validate we got valid JSON before parsing
           if ! echo "${OUTPUTS}" | jq empty 2>/dev/null; then
             echo "❌ terraform output did not return valid JSON"
-            echo "Raw output (last 30 lines):"
-            terraform output -json 2>/dev/null | tail -30
+            echo "First 50 chars of output: $(echo "${OUTPUTS}" | head -c 50)"
             exit 1
           fi
           
@@ -226,9 +225,7 @@ jobs:
           
           # Validate cluster name is not empty
           if [ -z "${CLUSTER_NAME}" ] || [ "${CLUSTER_NAME}" == "null" ]; then
-            echo "❌ Failed to extract cluster name"
-            echo "Parsed JSON:"
-            echo "${OUTPUTS}" | jq . 2>/dev/null || echo "${OUTPUTS}"
+            echo "❌ Failed to extract cluster name from JSON"
             exit 1
           fi
           
