@@ -202,9 +202,15 @@ jobs:
         id: cluster_info
         run: |
           cd terraform/cluster
-          CLUSTER_NAME=$(terraform output -raw cluster_name 2>/dev/null)
-          CLUSTER_SUFFIX=$(terraform output -raw cluster_suffix 2>/dev/null)
-          CLUSTER_ENDPOINT=$(terraform output -raw cluster_endpoint 2>/dev/null)
+          
+          # Disable terraform debug logging to prevent debug output in variables
+          export TF_LOG=""
+          export TF_LOG_PATH="/dev/null"
+          
+          # Extract outputs with debug logging disabled
+          CLUSTER_NAME=$(terraform output -raw cluster_name 2>&1 | grep -v '::debug::' | grep -v 'exited with code' | head -1)
+          CLUSTER_SUFFIX=$(terraform output -raw cluster_suffix 2>&1 | grep -v '::debug::' | grep -v 'exited with code' | head -1)
+          CLUSTER_ENDPOINT=$(terraform output -raw cluster_endpoint 2>&1 | grep -v '::debug::' | grep -v 'exited with code' | head -1)
           
           # Validate outputs are not empty
           if [ -z "${CLUSTER_NAME}" ]; then
