@@ -1,5 +1,5 @@
 name: Deploy Multi-Agent Platform to EKS
-
+# GitHub Actions workflow to deploy a multi-agent platform to an EKS cluster using Terraform
 on:
   workflow_dispatch:
     inputs:
