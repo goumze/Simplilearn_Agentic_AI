@@ -203,12 +203,21 @@ jobs:
         run: |
           cd terraform/cluster
           
-          # Disable terraform debug logging
+          # Completely disable all terraform logging
           export TF_LOG=""
-          export TF_LOG_PATH="/dev/null"
+          export TF_LOG_PATH=""
+          export TF_INPUT=false
           
-          # Use terraform output -json to get clean JSON output, avoiding debug log interference
-          OUTPUTS=$(terraform output -json 2>&1 | grep -v '::debug::')
+          # Get JSON output, redirect stderr to /dev/null (don't mix with stdout)
+          OUTPUTS=$(terraform output -json 2>/dev/null)
+          
+          # Validate we got valid JSON before parsing
+          if ! echo "${OUTPUTS}" | jq empty 2>/dev/null; then
+            echo "❌ terraform output did not return valid JSON"
+            echo "Raw output:"
+            echo "${OUTPUTS}" | head -20
+            exit 1
+          fi
           
           # Parse JSON with jq to extract values cleanly
           CLUSTER_NAME=$(echo "${OUTPUTS}" | jq -r '.cluster_name.value // empty')
@@ -218,16 +227,14 @@ jobs:
           # Validate outputs are not empty
           if [ -z "${CLUSTER_NAME}" ] || [ "${CLUSTER_NAME}" == "null" ]; then
             echo "❌ Failed to extract cluster name"
-            echo "Raw terraform output:"
-            terraform output -json 2>&1 | head -50
+            echo "Parsed JSON:"
+            echo "${OUTPUTS}" | jq . 2>/dev/null || echo "${OUTPUTS}"
             exit 1
           fi
           
-          # Write to GITHUB_OUTPUT with proper escaping
-          {
-            echo "cluster_name=${CLUSTER_NAME}"
-            echo "cluster_suffix=${CLUSTER_SUFFIX}"
-          } >> $GITHUB_OUTPUT
+          # Write to GITHUB_OUTPUT - each on its own line
+          echo "cluster_name=${CLUSTER_NAME}" >> $GITHUB_OUTPUT
+          echo "cluster_suffix=${CLUSTER_SUFFIX}" >> $GITHUB_OUTPUT
           
           echo "✅ Cluster Name: ${CLUSTER_NAME}"
           echo "✅ Cluster Suffix: ${CLUSTER_SUFFIX}"
