@@ -65,9 +65,12 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-          aws-region: ${{ env.AWS_REGION }}
-          role-session-name: github-actions-teardown-pause
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          # role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          # aws-region: ${{ env.AWS_REGION }}
+          # role-session-name: github-actions-teardown-pause
 
       - name: Install kubectl
         uses: azure/setup-kubectl@v3
@@ -118,9 +121,12 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-          aws-region: ${{ env.AWS_REGION }}
-          role-session-name: github-actions-teardown-apps
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          # role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          # aws-region: ${{ env.AWS_REGION }}
+          # role-session-name: github-actions-teardown-apps
 
       - name: Install kubectl
         uses: azure/setup-kubectl@v3
@@ -203,14 +209,17 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-          aws-region: ${{ env.AWS_REGION }}
-          role-session-name: github-actions-teardown-bootstrap
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          # role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          # aws-region: ${{ env.AWS_REGION }}
+          # role-session-name: github-actions-teardown-bootstrap
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
-          terraform_version: 1.6.0
+          terraform_version: 1.6.1
 
       - name: Initialize Terraform (bootstrap)
         run: |
@@ -252,14 +261,17 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-          aws-region: ${{ env.AWS_REGION }}
-          role-session-name: github-actions-teardown-cluster
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          # role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          # aws-region: ${{ env.AWS_REGION }}
+          # role-session-name: github-actions-teardown-cluster
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
-          terraform_version: 1.6.0
+          terraform_version: 1.6.1
 
       - name: Initialize Terraform (cluster)
         run: |
