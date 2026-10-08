@@ -1,0 +1,690 @@
+name: Deploy Multi-Agent Platform to EKS
+
+on:
+  workflow_dispatch:
+    inputs:
+      aws_region:
+        description: AWS Region for EKS cluster
+        required: false
+        default: ap-south-1
+        type: string
+      cluster_name:
+        description: Name of EKS cluster
+        required: false
+        default: finops-agents
+        type: string
+      gitops_repo_url:
+        description: GitOps repository URL (optional, uses default if not provided)
+        required: false
+        type: string
+      environment:
+        description: Environment to deploy to
+        required: true
+        default: dev
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+
+env:
+  AWS_REGION: ${{ github.event.inputs.aws_region || 'ap-south-1' }}
+  CLUSTER_NAME: ${{ github.event.inputs.cluster_name || 'finops-agents' }}
+  GITOPS_REPO_URL: ${{ github.event.inputs.gitops_repo_url }}
+
+jobs:
+  validate:
+    name: Validate Configuration
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate Terraform configuration
+        run: |
+          echo "🔍 Validating configuration..."
+          echo "  AWS Region: ${{ env.AWS_REGION }}"
+          echo "  Cluster Name: ${{ env.CLUSTER_NAME }}"
+          echo "  Environment: ${{ github.event.inputs.environment }}"
+          
+          # Check that terraform files exist
+          [ -d "terraform/cluster" ] || exit 1
+          [ -d "terraform/bootstrap" ] || exit 1
+          
+          echo "✅ Configuration valid"
+
+  provision-cluster:
+    name: Provision EKS Cluster
+    runs-on: ubuntu-latest
+    needs: validate
+    environment:
+      name: ${{ github.event.inputs.environment }}
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: github-actions-eks-deploy
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.6.0
+
+      - name: Initialize Terraform (cluster)
+        run: |
+          cd terraform/cluster
+          terraform init -upgrade
+          terraform fmt -check
+        continue-on-error: true
+
+      - name: Plan Terraform (cluster)
+        id: plan
+        run: |
+          cd terraform/cluster
+          terraform plan \
+            -var "aws_region=${{ env.AWS_REGION }}" \
+            -var "cluster_name=${{ env.CLUSTER_NAME }}" \
+            -out=tfplan
+        continue-on-error: false
+
+      - name: Apply Terraform (cluster)
+        run: |
+          cd terraform/cluster
+          echo "🚀 Provisioning EKS Auto Mode cluster..."
+          terraform apply -auto-approve tfplan
+          echo "✅ Cluster provisioned successfully"
+
+      - name: Export cluster info
+        run: |
+          cd terraform/cluster
+          CLUSTER_ENDPOINT=$(terraform output -raw cluster_endpoint)
+          echo "CLUSTER_ENDPOINT=$CLUSTER_ENDPOINT" >> $GITHUB_ENV
+          echo "✅ Cluster endpoint exported"
+
+      - name: Upload Terraform state
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: terraform-cluster-state
+          path: terraform/cluster/tfplan
+          retention-days: 7
+
+  update-kubeconfig:
+    name: Update kubeconfig
+    runs-on: ubuntu-latest
+    needs: provision-cluster
+    environment:
+      name: ${{ github.event.inputs.environment }}
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: github-actions-kubeconfig
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: v1.28.0
+
+      - name: Update kubeconfig
+        run: |
+          echo "🔄 Updating kubeconfig..."
+          aws eks update-kubeconfig \
+            --region ${{ env.AWS_REGION }} \
+            --name ${{ env.CLUSTER_NAME }}
+          
+          echo "✅ Verifying cluster access..."
+          kubectl get nodes
+
+      - name: Save kubeconfig
+        run: |
+          mkdir -p kubeconfig-artifact
+          cp ~/.kube/config kubeconfig-artifact/config
+          chmod 600 kubeconfig-artifact/config
+
+      - name: Upload kubeconfig
+        uses: actions/upload-artifact@v3
+        with:
+          name: kubeconfig
+          path: kubeconfig-artifact/config
+          retention-days: 7
+
+  install-argocd:
+    name: Install ArgoCD and Bootstrap
+    runs-on: ubuntu-latest
+    needs: update-kubeconfig
+    environment:
+      name: ${{ github.event.inputs.environment }}
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: github-actions-bootstrap
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v3
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig \
+            --region ${{ env.AWS_REGION }} \
+            --name ${{ env.CLUSTER_NAME }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.6.0
+
+      - name: Initialize Terraform (bootstrap)
+        run: |
+          cd terraform/bootstrap
+          terraform init -upgrade
+
+      - name: Apply Terraform (bootstrap)
+        run: |
+          cd terraform/bootstrap
+          echo "🚀 Installing ArgoCD and app-of-apps..."
+          
+          GITOPS_VAR=""
+          if [ -n "${{ env.GITOPS_REPO_URL }}" ]; then
+            GITOPS_VAR="-var gitops_repo_url=${{ env.GITOPS_REPO_URL }}"
+          fi
+          
+          terraform apply -auto-approve \
+            -var "aws_region=${{ env.AWS_REGION }}" \
+            -var "cluster_name=${{ env.CLUSTER_NAME }}" \
+            ${GITOPS_VAR}
+          
+          echo "✅ ArgoCD and bootstrap complete"
+
+      - name: Verify ArgoCD deployment
+        run: |
+          echo "⏳ Waiting for ArgoCD Application controller..."
+          kubectl -n argocd rollout status statefulset/argocd-application-controller \
+            --timeout=5m
+          echo "✅ ArgoCD ready"
+
+  wait-capabilities:
+    name: Wait for EKS Capabilities
+    runs-on: ubuntu-latest
+    needs: install-argocd
+    environment:
+      name: ${{ github.event.inputs.environment }}
+    permissions:
+      id-token: write
+      contents: read
+    timeout-minutes: 30
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: github-actions-capabilities
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v3
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig \
+            --region ${{ env.AWS_REGION }} \
+            --name ${{ env.CLUSTER_NAME }}
+
+      - name: Wait for ACK + kro Capabilities
+        run: |
+          echo "⏳ Waiting for EKS Capabilities (ACK and kro)..."
+          
+          for cap in ack kro; do
+            echo "  ⏳ Waiting for capability/${cap}..."
+            for i in {1..60}; do
+              STATE=$(aws eks describe-capability \
+                --cluster-name ${{ env.CLUSTER_NAME }} \
+                --region ${{ env.AWS_REGION }} \
+                --capability-name "$cap" \
+                --query 'capability.status' \
+                --output text 2>/dev/null || echo '')
+              
+              if [ "$STATE" = "ACTIVE" ]; then
+                echo "  ✅ ${cap}: ACTIVE"
+                break
+              fi
+              
+              if [ $i -eq 60 ]; then
+                echo "  ❌ Timeout waiting for ${cap}"
+                exit 1
+              fi
+              
+              sleep 10
+            done
+          done
+
+      - name: Wait for ResourceGraphDefinitions
+        run: |
+          echo "⏳ Waiting for kro ResourceGraphDefinitions..."
+          
+          RGD_LIST=(
+            "agentcorememory.fsi.aws.example.com"
+            "agentcorebrowser.fsi.aws.example.com"
+            "agentcorecodeinterpreter.fsi.aws.example.com"
+          )
+          
+          for rgd in "${RGD_LIST[@]}"; do
+            echo "  ⏳ Waiting for ${rgd}..."
+            kubectl wait resourcegraphdefinition/${rgd} \
+              --for=jsonpath='{.status.state}'=Active \
+              --timeout=5m || true
+            echo "  ✅ ${rgd} ready"
+          done
+
+  wait-addons:
+    name: Wait for Add-on Applications
+    runs-on: ubuntu-latest
+    needs: wait-capabilities
+    environment:
+      name: ${{ github.event.inputs.environment }}
+    permissions:
+      id-token: write
+      contents: read
+    timeout-minutes: 30
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: github-actions-addons
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v3
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig \
+            --region ${{ env.AWS_REGION }} \
+            --name ${{ env.CLUSTER_NAME }}
+
+      - name: Wait for add-on Applications
+        run: |
+          echo "⏳ Waiting for add-on Applications to sync..."
+          
+          APPS=(
+            "agentgateway-crds"
+            "gateway-api-crds"
+            "auto-mode-defaults"
+            "agentcore-rgds"
+            "agent-gateway"
+            "agent-gateway-config"
+            "litellm"
+          )
+          
+          for app in "${APPS[@]}"; do
+            echo "  ⏳ Waiting for ${app}..."
+            kubectl -n argocd wait application/"${app}" \
+              --for=jsonpath='{.status.sync.status}'=Synced \
+              --timeout=10m || true
+            kubectl -n argocd wait application/"${app}" \
+              --for=jsonpath='{.status.health.status}'=Healthy \
+              --timeout=10m || true
+            echo "  ✅ ${app} synced and healthy"
+          done
+
+  wait-financial-services:
+    name: Wait for Financial Services
+    runs-on: ubuntu-latest
+    needs: wait-addons
+    environment:
+      name: ${{ github.event.inputs.environment }}
+    permissions:
+      id-token: write
+      contents: read
+    timeout-minutes: 30
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: github-actions-financial-services
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v3
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig \
+            --region ${{ env.AWS_REGION }} \
+            --name ${{ env.CLUSTER_NAME }}
+
+      - name: Wait for financial-services Application
+        run: |
+          echo "⏳ Waiting for financial-services Application..."
+          kubectl -n argocd wait application/financial-services \
+            --for=jsonpath='{.status.sync.status}'=Synced \
+            --timeout=15m || true
+          echo "✅ financial-services synced"
+
+      - name: Wait for AgentCore resources
+        run: |
+          echo "⏳ Waiting for AgentCore resources..."
+          
+          # Wait for Memory resources
+          for r in $(kubectl -n financial-services get memories.bedrockagentcorecontrol.services.k8s.aws -o name 2>/dev/null); do
+            echo "  ⏳ Waiting for ${r}..."
+            kubectl -n financial-services wait "${r}" \
+              --for=condition=ACK.ResourceSynced \
+              --timeout=10m || true
+          done
+          
+          # Wait for Browser resources
+          for r in $(kubectl -n financial-services get browsers.bedrockagentcorecontrol.services.k8s.aws -o name 2>/dev/null); do
+            echo "  ⏳ Waiting for ${r}..."
+            kubectl -n financial-services wait "${r}" \
+              --for=condition=ACK.ResourceSynced \
+              --timeout=10m || true
+          done
+          
+          # Wait for CodeInterpreter resources
+          for r in $(kubectl -n financial-services get codeinterpreters.bedrockagentcorecontrol.services.k8s.aws -o name 2>/dev/null); do
+            echo "  ⏳ Waiting for ${r}..."
+            kubectl -n financial-services wait "${r}" \
+              --for=condition=ACK.ResourceSynced \
+              --timeout=10m || true
+          done
+          
+          echo "✅ AgentCore resources synced"
+
+      - name: Wait for IAM and Pod Identity resources
+        run: |
+          echo "⏳ Waiting for IAM and Pod Identity resources..."
+          
+          for r in $(kubectl -n financial-services get roles.iam.services.k8s.aws -o name 2>/dev/null); do
+            echo "  ⏳ Waiting for ${r}..."
+            kubectl -n financial-services wait "${r}" \
+              --for=condition=ACK.ResourceSynced \
+              --timeout=10m || true
+          done
+          
+          for r in $(kubectl -n financial-services get podidentityassociations.eks.services.k8s.aws -o name 2>/dev/null); do
+            echo "  ⏳ Waiting for ${r}..."
+            kubectl -n financial-services wait "${r}" \
+              --for=condition=ACK.ResourceSynced \
+              --timeout=10m || true
+          done
+          
+          echo "✅ IAM and Pod Identity resources ready"
+
+      - name: Verify AgentCore IDs are populated
+        run: |
+          echo "✅ Verifying AgentCore IDs..."
+          
+          for kind in memory browser code-interpreter; do
+            for sec in $(kubectl -n financial-services get secret -o name 2>/dev/null | grep -- "-${kind}-outputs"); do
+              echo "  ⏳ Checking ${sec}..."
+              for i in {1..30}; do
+                if kubectl -n financial-services get "${sec}" -o jsonpath='{.data.id}' 2>/dev/null | grep -q .; then
+                  echo "  ✅ ${sec} has ID populated"
+                  break
+                fi
+                sleep 10
+              done
+            done
+          done
+
+  restart-agents:
+    name: Restart Agent Deployments
+    runs-on: ubuntu-latest
+    needs: wait-financial-services
+    environment:
+      name: ${{ github.event.inputs.environment }}
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: github-actions-restart-agents
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v3
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig \
+            --region ${{ env.AWS_REGION }} \
+            --name ${{ env.CLUSTER_NAME }}
+
+      - name: Restart agent Deployments
+        run: |
+          echo "🔄 Restarting agent Deployments..."
+          
+          AGENTS=(
+            "financial-advisor"
+            "portfolio-analyst"
+            "risk-assessment"
+            "market-data"
+          )
+          
+          for agent in "${AGENTS[@]}"; do
+            echo "  ⏳ Restarting ${agent}..."
+            kubectl -n financial-services rollout restart deploy/${agent} 2>/dev/null || echo "    (not found, skipping)"
+            kubectl -n financial-services rollout status deploy/${agent} --timeout=5m || true
+            echo "  ✅ ${agent} restarted"
+          done
+
+  post-deployment:
+    name: Post-Deployment Tasks
+    runs-on: ubuntu-latest
+    needs: restart-agents
+    if: success()
+    environment:
+      name: ${{ github.event.inputs.environment }}
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: github-actions-post-deploy
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v3
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig \
+            --region ${{ env.AWS_REGION }} \
+            --name ${{ env.CLUSTER_NAME }}
+
+      - name: Get cluster information
+        run: |
+          echo "## 🎉 Deployment Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Cluster Information" >> $GITHUB_STEP_SUMMARY
+          echo "- **Cluster Name**: ${{ env.CLUSTER_NAME }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Region**: ${{ env.AWS_REGION }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment**: ${{ github.event.inputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+      - name: Get ArgoCD admin password
+        run: |
+          echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**ArgoCD Admin Password:**" >> $GITHUB_STEP_SUMMARY
+          ADMIN_PASS=$(kubectl -n argocd get secret argocd-initial-admin-secret \
+            -o jsonpath='{.data.password}' 2>/dev/null | base64 -d || echo '<retrieving...>')
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "$ADMIN_PASS" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+      - name: Get cluster access commands
+        run: |
+          echo "**Access Cluster:**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name ${{ env.CLUSTER_NAME }}" >> $GITHUB_STEP_SUMMARY
+          echo "kubectl get nodes" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+      - name: Get ArgoCD UI access
+        run: |
+          echo "**Access ArgoCD UI:**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "kubectl port-forward -n argocd svc/argocd-server 8080:80" >> $GITHUB_STEP_SUMMARY
+          echo "# Then open http://localhost:8080" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+      - name: Verify agents are running
+        run: |
+          echo "**Verify Agents:**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "kubectl get pods -n financial-services" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          kubectl get pods -n financial-services
+
+      - name: Create deployment report
+        run: |
+          cat > deployment-report.md << EOF
+          # Multi-Agent Platform Deployment Report
+          
+          ## Deployment Details
+          - **Cluster Name**: ${{ env.CLUSTER_NAME }}
+          - **Region**: ${{ env.AWS_REGION }}
+          - **Environment**: ${{ github.event.inputs.environment }}
+          - **Timestamp**: $(date -u +'%Y-%m-%dT%H:%M:%SZ')
+          - **Workflow Run**: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          
+          ## Verification Commands
+          
+          ### Check cluster access
+          \`\`\`bash
+          aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name ${{ env.CLUSTER_NAME }}
+          kubectl get nodes
+          \`\`\`
+          
+          ### Check ArgoCD status
+          \`\`\`bash
+          kubectl get applications -n argocd
+          \`\`\`
+          
+          ### Check financial-services
+          \`\`\`bash
+          kubectl get pods -n financial-services
+          kubectl get agentcorememories,agentcorebrowsers,agentcorecodeinterpreters -n financial-services
+          \`\`\`
+          
+          ### Test the advisor agent (requires port-forward)
+          \`\`\`bash
+          kubectl port-forward -n agentgateway-system svc/agent-gateway-proxy 8080:8080 &
+          TOKEN=\$(kubectl create token financial-advisor-sa -n financial-services --duration=1h --audience=agent-gateway)
+          curl -sS -X POST http://localhost:8080/agents/financial-advisor \\
+            -H "Authorization: Bearer \$TOKEN" \\
+            -H "Content-Type: application/json" \\
+            -d '{"task":"I have 100 AAPL and 50 GOOGL. Is my portfolio balanced for medium risk?"}'
+          \`\`\`
+          
+          ## Cleanup
+          
+          To destroy the cluster:
+          \`\`\`bash
+          cd terraform/bootstrap && terraform destroy -auto-approve
+          cd ../cluster && terraform destroy -auto-approve
+          \`\`\`
+          EOF
+          
+          cat deployment-report.md
+
+      - name: Upload deployment report
+        uses: actions/upload-artifact@v3
+        with:
+          name: deployment-report
+          path: deployment-report.md
+          retention-days: 30
+
+  cleanup-on-failure:
+    name: Cleanup on Failure
+    runs-on: ubuntu-latest
+    needs: [provision-cluster, update-kubeconfig, install-argocd, wait-capabilities, wait-addons, wait-financial-services, restart-agents]
+    if: failure() && github.event.inputs.environment == 'dev'
+    environment:
+      name: ${{ github.event.inputs.environment }}
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: github-actions-cleanup
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+
+      - name: Cleanup resources
+        run: |
+          echo "⚠️  Cleaning up resources due to deployment failure..."
+          
+          cd terraform/bootstrap
+          terraform init -upgrade
+          terraform destroy -auto-approve \
+            -var "aws_region=${{ env.AWS_REGION }}" \
+            -var "cluster_name=${{ env.CLUSTER_NAME }}" || true
+          
+          cd ../cluster
+          terraform init -upgrade
+          terraform destroy -auto-approve \
+            -var "aws_region=${{ env.AWS_REGION }}" \
+            -var "cluster_name=${{ env.CLUSTER_NAME }}" || true
+          
+          echo "✅ Cleanup complete"
