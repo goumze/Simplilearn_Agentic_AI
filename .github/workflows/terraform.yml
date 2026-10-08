@@ -11,7 +11,7 @@ on:
       cluster_name:
         description: Name of EKS cluster
         required: false
-        default: finops-agents
+        default: finops-agents-app
         type: string
       gitops_repo_url:
         description: GitOps repository URL (optional, uses default if not provided)
@@ -29,7 +29,7 @@ on:
 
 env:
   AWS_REGION: ${{ github.event.inputs.aws_region || 'ap-south-1' }}
-  CLUSTER_NAME: ${{ github.event.inputs.cluster_name || 'finops-agents' }}
+  CLUSTER_NAME: ${{ github.event.inputs.cluster_name || 'finops-agents-app' }}
   GITOPS_REPO_URL: ${{ github.event.inputs.gitops_repo_url }}
 
 jobs:
