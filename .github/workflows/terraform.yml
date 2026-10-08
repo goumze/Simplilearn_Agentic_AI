@@ -203,18 +203,26 @@ jobs:
         run: |
           cd terraform/cluster
           
-          # Disable terraform debug logging to prevent debug output in variables
+          # Disable terraform debug logging
           export TF_LOG=""
           export TF_LOG_PATH="/dev/null"
           
-          # Extract outputs with debug logging disabled
-          CLUSTER_NAME=$(terraform output -raw cluster_name 2>&1 | grep -v '::debug::' | grep -v 'exited with code' | head -1)
-          CLUSTER_SUFFIX=$(terraform output -raw cluster_suffix 2>&1 | grep -v '::debug::' | grep -v 'exited with code' | head -1)
-          CLUSTER_ENDPOINT=$(terraform output -raw cluster_endpoint 2>&1 | grep -v '::debug::' | grep -v 'exited with code' | head -1)
+          # Extract outputs and remove debug logs using field separator
+          # If terraform output contains "value::debug::...", extract only "value" part
+          CLUSTER_NAME=$(terraform output -raw cluster_name 2>&1 | awk -F'::' '{print $1}')
+          CLUSTER_SUFFIX=$(terraform output -raw cluster_suffix 2>&1 | awk -F'::' '{print $1}')
+          CLUSTER_ENDPOINT=$(terraform output -raw cluster_endpoint 2>&1 | awk -F'::' '{print $1}')
+          
+          # Trim any trailing whitespace
+          CLUSTER_NAME=$(echo "${CLUSTER_NAME}" | xargs)
+          CLUSTER_SUFFIX=$(echo "${CLUSTER_SUFFIX}" | xargs)
+          CLUSTER_ENDPOINT=$(echo "${CLUSTER_ENDPOINT}" | xargs)
           
           # Validate outputs are not empty
           if [ -z "${CLUSTER_NAME}" ]; then
             echo "❌ Failed to extract cluster name"
+            echo "Raw output was:"
+            terraform output -raw cluster_name 2>&1
             exit 1
           fi
           
