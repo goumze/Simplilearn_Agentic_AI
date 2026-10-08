@@ -24,8 +24,9 @@ on:
           - prod
       confirm_deletion:
         description: Type 'yes-delete-all' to confirm teardown
-        required: true
+        required: false
         type: string
+        default: "yes-delete-all"
 
 env:
   AWS_REGION: ${{ github.event.inputs.aws_region || 'ap-south-1' }}
