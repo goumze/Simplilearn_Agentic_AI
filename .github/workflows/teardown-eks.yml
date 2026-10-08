@@ -217,17 +217,36 @@ jobs:
           # aws-region: ${{ env.AWS_REGION }}
           # role-session-name: github-actions-teardown-bootstrap
 
+      - name: Check if cluster still exists
+        id: check_cluster
+        run: |
+          echo "Checking if cluster ${{ env.CLUSTER_NAME }} exists in ${{ env.AWS_REGION }}..."
+          if aws eks describe-cluster \
+            --name ${{ env.CLUSTER_NAME }} \
+            --region ${{ env.AWS_REGION }} \
+            >/dev/null 2>&1; then
+            echo "cluster_exists=true" >> $GITHUB_OUTPUT
+            echo "✅ Cluster exists, proceeding with Terraform destroy"
+          else
+            echo "cluster_exists=false" >> $GITHUB_OUTPUT
+            echo "⚠️  Cluster not found in AWS"
+          fi
+
       - name: Setup Terraform
+        if: steps.check_cluster.outputs.cluster_exists == 'true'
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: 1.6.1
 
       - name: Initialize Terraform (bootstrap)
+        if: steps.check_cluster.outputs.cluster_exists == 'true'
         run: |
           cd terraform/bootstrap
+          echo "Initializing Terraform..."
           terraform init -upgrade
 
       - name: Destroy Terraform (bootstrap)
+        if: steps.check_cluster.outputs.cluster_exists == 'true'
         run: |
           cd terraform/bootstrap
           echo "🗑️  Destroying bootstrap resources (ArgoCD + platform-root)..."
@@ -269,24 +288,61 @@ jobs:
           # aws-region: ${{ env.AWS_REGION }}
           # role-session-name: github-actions-teardown-cluster
 
+      - name: Check if cluster still exists
+        id: check_cluster
+        run: |
+          echo "Checking if cluster ${{ env.CLUSTER_NAME }} exists in ${{ env.AWS_REGION }}..."
+          if aws eks describe-cluster \
+            --name ${{ env.CLUSTER_NAME }} \
+            --region ${{ env.AWS_REGION }} \
+            >/dev/null 2>&1; then
+            echo "cluster_exists=true" >> $GITHUB_OUTPUT
+            echo "✅ Cluster exists, proceeding with Terraform destroy"
+          else
+            echo "cluster_exists=false" >> $GITHUB_OUTPUT
+            echo "⚠️  Cluster not found in AWS"
+          fi
+
       - name: Setup Terraform
+        if: steps.check_cluster.outputs.cluster_exists == 'true'
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: 1.6.1
 
       - name: Initialize Terraform (cluster)
+        if: steps.check_cluster.outputs.cluster_exists == 'true'
         run: |
           cd terraform/cluster
+          echo "Initializing Terraform..."
           terraform init -upgrade
 
       - name: Destroy Terraform (cluster)
+        if: steps.check_cluster.outputs.cluster_exists == 'true'
         run: |
           cd terraform/cluster
           echo "🗑️  Destroying cluster resources (this takes ~15 minutes)..."
-          terraform destroy -auto-approve \
+          
+          # Attempt destroy with the current state
+          if terraform destroy -auto-approve \
             -var "aws_region=${{ env.AWS_REGION }}" \
-            -var "cluster_name=${{ env.CLUSTER_NAME }}" || true
-          echo "✅ Cluster destroyed"
+            -var "cluster_name=${{ env.CLUSTER_NAME }}" 2>&1 | tee destroy.log; then
+            echo "✅ Cluster destroyed successfully"
+          else
+            # If destroy fails due to missing state, try AWS CLI removal
+            echo "⚠️  Terraform destroy failed or had issues, checking with AWS CLI..."
+            
+            if aws eks describe-cluster \
+              --name ${{ env.CLUSTER_NAME }} \
+              --region ${{ env.AWS_REGION }} \
+              >/dev/null 2>&1; then
+              echo "⚠️  Cluster still exists in AWS. Manual cleanup may be required."
+              echo "To manually destroy via AWS CLI:"
+              echo "  aws eks delete-cluster --name ${{ env.CLUSTER_NAME }} --region ${{ env.AWS_REGION }}"
+              exit 1
+            else
+              echo "✅ Cluster no longer exists in AWS"
+            fi
+          fi
 
       - name: Upload Terraform state
         if: always()
