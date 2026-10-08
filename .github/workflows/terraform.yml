@@ -103,13 +103,30 @@ jobs:
       - name: Initialize Terraform (cluster)
         run: |
           cd terraform/cluster
-          # Remove lock and .terraform directory
-          rm -rf .terraform .terraform.lock.hcl
+          # Aggressive cleanup of terraform artifacts
+          rm -rf .terraform .terraform.lock.hcl .terraform.lock.hcl.* 2>/dev/null || true
+          # Verify lock file is removed
+          if [ -f .terraform.lock.hcl ]; then
+            echo "⚠️ Lock file still exists, forcing removal..."
+            rm -f .terraform.lock.hcl
+          fi
+          
           # Initialize Terraform with proper env vars
           echo "TF_CLI_CONFIG_FILE: $TF_CLI_CONFIG_FILE"
-          # Initialize - GPG signature errors won't stop the process
-          terraform init -upgrade 2>&1 | tee init.log || terraform init 2>&1 | tee init.log
-          # Verify providers were installed despite any warnings
+          echo "Attempting terraform init -upgrade..."
+          
+          # Try init with upgrade, capture both stdout and stderr
+          if terraform init -upgrade 2>&1 | tee init.log; then
+            echo "✅ Terraform init succeeded with -upgrade"
+          else
+            echo "⚠️ Init with -upgrade had issues, cleaning up and retrying basic init..."
+            # Clean up any partial state
+            rm -rf .terraform .terraform.lock.hcl 2>/dev/null || true
+            # Try basic init
+            terraform init 2>&1 | tee init.log
+          fi
+          
+          # Verify providers were installed
           if [ -d .terraform/providers ]; then
             echo "✅ Providers installed successfully"
             find .terraform/providers -type d -name hashicorp | head -10
@@ -264,13 +281,30 @@ jobs:
       - name: Initialize Terraform (bootstrap)
         run: |
           cd terraform/bootstrap
-          # Remove lock and .terraform directory
-          rm -rf .terraform .terraform.lock.hcl
+          # Aggressive cleanup of terraform artifacts
+          rm -rf .terraform .terraform.lock.hcl .terraform.lock.hcl.* 2>/dev/null || true
+          # Verify lock file is removed
+          if [ -f .terraform.lock.hcl ]; then
+            echo "⚠️ Lock file still exists, forcing removal..."
+            rm -f .terraform.lock.hcl
+          fi
+          
           # Initialize Terraform with proper env vars
           echo "TF_CLI_CONFIG_FILE: $TF_CLI_CONFIG_FILE"
-          # Initialize - GPG signature errors won't stop the process
-          terraform init -upgrade 2>&1 | tee init.log || terraform init 2>&1 | tee init.log
-          # Verify providers were installed despite any warnings
+          echo "Attempting terraform init -upgrade..."
+          
+          # Try init with upgrade, capture both stdout and stderr
+          if terraform init -upgrade 2>&1 | tee init.log; then
+            echo "✅ Terraform init succeeded with -upgrade"
+          else
+            echo "⚠️ Init with -upgrade had issues, cleaning up and retrying basic init..."
+            # Clean up any partial state
+            rm -rf .terraform .terraform.lock.hcl 2>/dev/null || true
+            # Try basic init
+            terraform init 2>&1 | tee init.log
+          fi
+          
+          # Verify providers were installed
           if [ -d .terraform/providers ]; then
             echo "✅ Providers installed successfully"
             find .terraform/providers -type d -name hashicorp | head -10
@@ -762,17 +796,49 @@ jobs:
           echo "⚠️  Cleaning up resources due to deployment failure..."
           
           cd terraform/bootstrap
-          rm -rf .terraform .terraform.lock.hcl
+          # Aggressive cleanup
+          rm -rf .terraform .terraform.lock.hcl .terraform.lock.hcl.* 2>/dev/null || true
+          # Verify lock file is removed
+          if [ -f .terraform.lock.hcl ]; then
+            echo "⚠️ Lock file still exists, forcing removal..."
+            rm -f .terraform.lock.hcl
+          fi
+          
           echo "TF_CLI_CONFIG_FILE: $TF_CLI_CONFIG_FILE"
-          terraform init -upgrade 2>&1 | tee init.log || terraform init 2>&1 | tee init.log || true
+          echo "Attempting terraform init -upgrade for bootstrap..."
+          
+          if terraform init -upgrade 2>&1 | tee init.log; then
+            echo "✅ Bootstrap init succeeded"
+          else
+            echo "⚠️ Bootstrap init had issues, trying basic init..."
+            rm -rf .terraform .terraform.lock.hcl 2>/dev/null || true
+            terraform init 2>&1 | tee init.log || true
+          fi
+          
           terraform destroy -auto-approve \
             -var "aws_region=${{ env.AWS_REGION }}" \
             -var "cluster_name=${{ env.CLUSTER_NAME }}" 2>&1 || true
           
           cd ../cluster
-          rm -rf .terraform .terraform.lock.hcl
+          # Aggressive cleanup
+          rm -rf .terraform .terraform.lock.hcl .terraform.lock.hcl.* 2>/dev/null || true
+          # Verify lock file is removed
+          if [ -f .terraform.lock.hcl ]; then
+            echo "⚠️ Lock file still exists, forcing removal..."
+            rm -f .terraform.lock.hcl
+          fi
+          
           echo "TF_CLI_CONFIG_FILE: $TF_CLI_CONFIG_FILE"
-          terraform init -upgrade 2>&1 | tee init.log || terraform init 2>&1 | tee init.log || true
+          echo "Attempting terraform init -upgrade for cluster..."
+          
+          if terraform init -upgrade 2>&1 | tee init.log; then
+            echo "✅ Cluster init succeeded"
+          else
+            echo "⚠️ Cluster init had issues, trying basic init..."
+            rm -rf .terraform .terraform.lock.hcl 2>/dev/null || true
+            terraform init 2>&1 | tee init.log || true
+          fi
+          
           terraform destroy -auto-approve \
             -var "aws_region=${{ env.AWS_REGION }}" \
             -var "cluster_name=${{ env.CLUSTER_NAME }}" 2>&1 || true
