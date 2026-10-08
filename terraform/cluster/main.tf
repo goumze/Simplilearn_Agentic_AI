@@ -31,7 +31,7 @@ provider "aws" {
 
 # Generate a unique suffix to avoid KMS/resource conflicts across deployments
 resource "random_string" "cluster_suffix" {
-  length  = 8
+  length  = 2
   special = false
   lower   = true
   numeric = true
