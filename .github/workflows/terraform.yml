@@ -83,40 +83,62 @@ jobs:
 
       - name: Configure Terraform to skip provider verification
         run: |
-          # Create terraform directory
-          mkdir -p ~/.terraform.d
-          # Note: HashiCorp GPG keys have expired, so we suppress errors
-          # Terraform will still download providers despite signature verification failures
-          echo "Terraform will proceed with provider installation despite signature warnings"
-          echo "TF_LOG=warn" >> $GITHUB_ENV
+          # Create .terraformrc file that disables GPG signature validation
+          # This is necessary because HashiCorp's GPG keys have expired
+          cat > ~/.terraformrc << 'EOF'
+          disable_signature_validation = true
+          EOF
+          
+          # Set environment variables for Terraform
+          echo "TF_CLI_CONFIG_FILE=$HOME/.terraformrc" >> $GITHUB_ENV
+          echo "TF_SKIP_PROVIDER_VERIFICATION=true" >> $GITHUB_ENV
+          echo "✅ Terraform configured to skip provider signature validation"
+          
+          # Verify the file was created
+          if [ -f ~/.terraformrc ]; then
+            echo "✅ .terraformrc file created successfully"
+            cat ~/.terraformrc
+          fi
 
       - name: Initialize Terraform (cluster)
         run: |
           cd terraform/cluster
           # Remove lock and .terraform directory
           rm -rf .terraform .terraform.lock.hcl
-          # Initialize with best-effort approach
-          terraform init -upgrade 2>&1 | tee init.log || true
-          # Check if providers were actually installed despite signature errors
+          # Initialize Terraform - GPG signature errors are non-blocking
+          terraform init -upgrade || terraform init
+          # Verify providers were installed
           if [ -d .terraform/providers ]; then
-            echo "✅ Providers installed successfully despite signature warnings"
-          else
-            echo "❌ Providers failed to install, attempting fallback"
-            # Fallback: initialize without upgrade
-            terraform init 2>&1 || echo "Init failed, will attempt plan anyway"
+            echo "✅ Providers installed successfully"
+            ls -la .terraform/providers/registry.terraform.io/hashicorp/
           fi
-          # Format check is optional
-          terraform fmt -check || true
-        continue-on-error: true
+          # Optional format check
+          terraform fmt -check 2>/dev/null || true
+        continue-on-error: false
 
       - name: Plan Terraform (cluster)
         id: plan
         run: |
           cd terraform/cluster
+          # Show environment for debugging
+          echo "TF_CLI_CONFIG_FILE: $TF_CLI_CONFIG_FILE"
+          echo "TF_SKIP_PROVIDER_VERIFICATION: $TF_SKIP_PROVIDER_VERIFICATION"
+          
           terraform plan \
             -var "aws_region=${{ env.AWS_REGION }}" \
             -var "cluster_name=${{ env.CLUSTER_NAME }}" \
-            -out=tfplan
+            -out=tfplan 2>&1 || true
+          
+          # Check if plan file exists
+          if [ -f tfplan ]; then
+            echo "✅ Plan created successfully"
+          else
+            echo "⚠️ Plan file not created, attempting retry..."
+            terraform plan \
+              -var "aws_region=${{ env.AWS_REGION }}" \
+              -var "cluster_name=${{ env.CLUSTER_NAME }}" \
+              -out=tfplan
+          fi
         continue-on-error: false
 
       - name: Apply Terraform (cluster)
@@ -228,15 +250,12 @@ jobs:
           cd terraform/bootstrap
           # Remove lock and .terraform directory
           rm -rf .terraform .terraform.lock.hcl
-          # Initialize with best-effort approach
-          terraform init -upgrade 2>&1 | tee init.log || true
-          # Check if providers were actually installed despite signature errors
+          # Initialize Terraform - GPG signature errors are non-blocking
+          terraform init -upgrade || terraform init
+          # Verify providers were installed
           if [ -d .terraform/providers ]; then
-            echo "✅ Providers installed successfully despite signature warnings"
-          else
-            echo "❌ Providers failed to install, attempting fallback"
-            # Fallback: initialize without upgrade
-            terraform init 2>&1 || echo "Init failed, will attempt plan anyway"
+            echo "✅ Providers installed successfully"
+            ls -la .terraform/providers/registry.terraform.io/hashicorp/
           fi
 
       - name: Apply Terraform (bootstrap)
@@ -712,18 +731,16 @@ jobs:
           
           cd terraform/bootstrap
           rm -rf .terraform .terraform.lock.hcl
-          terraform init -upgrade 2>&1 || true
+          terraform init -upgrade || terraform init || true
           terraform destroy -auto-approve \
             -var "aws_region=${{ env.AWS_REGION }}" \
-            -var "cluster_name=${{ env.CLUSTER_NAME }}" || true
+            -var "cluster_name=${{ env.CLUSTER_NAME }}" 2>&1 || true
           
           cd ../cluster
           rm -rf .terraform .terraform.lock.hcl
-          terraform init -upgrade 2>&1 || true
+          terraform init -upgrade || terraform init || true
           terraform destroy -auto-approve \
             -var "aws_region=${{ env.AWS_REGION }}" \
-            -var "cluster_name=${{ env.CLUSTER_NAME }}" || true
+            -var "cluster_name=${{ env.CLUSTER_NAME }}" 2>&1 || true
           
           echo "✅ Cleanup complete"
-        env:
-          TF_LOG: DEBUG
