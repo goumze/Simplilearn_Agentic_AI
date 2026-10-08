@@ -18,11 +18,23 @@ terraform {
       source  = "hashicorp/kubernetes"
       version = "~> 3.1"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.5"
+    }
   }
 }
 
 provider "aws" {
   region = var.aws_region
+}
+
+# Generate a unique suffix to avoid KMS/resource conflicts across deployments
+resource "random_string" "cluster_suffix" {
+  length  = 8
+  special = false
+  lower   = true
+  numeric = true
 }
 
 data "aws_availability_zones" "available" {
@@ -33,10 +45,13 @@ data "aws_availability_zones" "available" {
 }
 
 locals {
+  # Combine cluster name with random suffix for uniqueness
+  cluster_name_with_suffix = "${var.cluster_name}-${random_string.cluster_suffix.result}"
+  
   azs = slice(data.aws_availability_zones.available.names, 0, 3)
 
   tags = {
-    Project = var.cluster_name
+    Project = local.cluster_name_with_suffix
     Blog    = "finops-agents-on-eks-auto-mode"
   }
 }
@@ -48,7 +63,7 @@ module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
   version = "~> 6.6"
 
-  name = "${var.cluster_name}-vpc"
+  name = "${local.cluster_name_with_suffix}-vpc"
   cidr = var.vpc_cidr
 
   azs             = local.azs
@@ -81,7 +96,7 @@ module "eks" {
   source  = "terraform-aws-modules/eks/aws"
   version = "~> 21.19"
 
-  name               = var.cluster_name
+  name               = local.cluster_name_with_suffix
   kubernetes_version = var.cluster_version
 
   # Auto Mode

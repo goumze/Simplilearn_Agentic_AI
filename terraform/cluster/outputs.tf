@@ -1,3 +1,8 @@
+output "cluster_suffix" {
+  description = "Random suffix appended to cluster name (for uniqueness)"
+  value       = random_string.cluster_suffix.result
+}
+
 output "cluster_name" {
   description = "EKS cluster name"
   value       = module.eks.cluster_name

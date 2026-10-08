@@ -62,6 +62,9 @@ jobs:
     permissions:
       id-token: write
       contents: read
+    outputs:
+      cluster_name: ${{ steps.cluster_info.outputs.cluster_name }}
+      cluster_suffix: ${{ steps.cluster_info.outputs.cluster_suffix }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -196,11 +199,19 @@ jobs:
           echo "✅ Cluster provisioned successfully"
 
       - name: Export cluster info
+        id: cluster_info
         run: |
           cd terraform/cluster
+          CLUSTER_NAME=$(terraform output -raw cluster_name)
+          CLUSTER_SUFFIX=$(terraform output -raw cluster_suffix)
           CLUSTER_ENDPOINT=$(terraform output -raw cluster_endpoint)
-          echo "✅ Cluster endpoint: $CLUSTER_ENDPOINT"
-          # Note: Not exporting to $GITHUB_ENV due to special characters in URL
+          
+          echo "cluster_name=${CLUSTER_NAME}" >> $GITHUB_OUTPUT
+          echo "cluster_suffix=${CLUSTER_SUFFIX}" >> $GITHUB_OUTPUT
+          
+          echo "✅ Cluster Name: ${CLUSTER_NAME}"
+          echo "✅ Cluster Suffix: ${CLUSTER_SUFFIX}"
+          echo "✅ Cluster Endpoint: ${CLUSTER_ENDPOINT}"
 
       - name: Upload Terraform state
         if: always()
@@ -228,9 +239,12 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-          aws-region: ${{ env.AWS_REGION }}
-          role-session-name: github-actions-kubeconfig
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          # role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          # aws-region: ${{ env.AWS_REGION }}
+          # role-session-name: github-actions-kubeconfig
 
       - name: Install kubectl
         uses: azure/setup-kubectl@v3
@@ -263,7 +277,7 @@ jobs:
   install-argocd:
     name: Install ArgoCD and Bootstrap
     runs-on: ubuntu-latest
-    needs: update-kubeconfig
+    needs: [update-kubeconfig, provision-cluster]
     environment:
       name: ${{ github.event.inputs.environment }}
     permissions:
@@ -276,9 +290,12 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-          aws-region: ${{ env.AWS_REGION }}
-          role-session-name: github-actions-bootstrap
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          # role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          # aws-region: ${{ env.AWS_REGION }}
+          # role-session-name: github-actions-bootstrap
 
       - name: Install kubectl
         uses: azure/setup-kubectl@v3
@@ -372,9 +389,12 @@ jobs:
           fi
 
       - name: Apply Terraform (bootstrap)
+        env:
+          ACTUAL_CLUSTER_NAME: ${{ needs.provision-cluster.outputs.cluster_name }}
         run: |
           cd terraform/bootstrap
           echo "🚀 Installing ArgoCD and app-of-apps..."
+          echo "Using cluster name: ${ACTUAL_CLUSTER_NAME}"
           
           GITOPS_VAR=""
           if [ -n "${{ env.GITOPS_REPO_URL }}" ]; then
@@ -383,7 +403,7 @@ jobs:
           
           terraform apply -auto-approve \
             -var "aws_region=${{ env.AWS_REGION }}" \
-            -var "cluster_name=${{ env.CLUSTER_NAME }}" \
+            -var "cluster_name=${ACTUAL_CLUSTER_NAME}" \
             ${GITOPS_VAR}
           
           echo "✅ ArgoCD and bootstrap complete"
@@ -422,9 +442,12 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-          aws-region: ${{ env.AWS_REGION }}
-          role-session-name: github-actions-capabilities
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          # role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          # aws-region: ${{ env.AWS_REGION }}
+          # role-session-name: github-actions-capabilities
 
       - name: Install kubectl
         uses: azure/setup-kubectl@v3
@@ -498,9 +521,12 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-          aws-region: ${{ env.AWS_REGION }}
-          role-session-name: github-actions-addons
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          # role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          # aws-region: ${{ env.AWS_REGION }}
+          # role-session-name: github-actions-addons
 
       - name: Install kubectl
         uses: azure/setup-kubectl@v3
@@ -553,9 +579,12 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-          aws-region: ${{ env.AWS_REGION }}
-          role-session-name: github-actions-financial-services
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          # role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          # aws-region: ${{ env.AWS_REGION }}
+          # role-session-name: github-actions-financial-services
 
       - name: Install kubectl
         uses: azure/setup-kubectl@v3
@@ -654,9 +683,12 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-          aws-region: ${{ env.AWS_REGION }}
-          role-session-name: github-actions-restart-agents
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          # role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          # aws-region: ${{ env.AWS_REGION }}
+          # role-session-name: github-actions-restart-agents
 
       - name: Install kubectl
         uses: azure/setup-kubectl@v3
@@ -699,9 +731,12 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-          aws-region: ${{ env.AWS_REGION }}
-          role-session-name: github-actions-post-deploy
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          # role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          # aws-region: ${{ env.AWS_REGION }}
+          # role-session-name: github-actions-post-deploy
 
       - name: Install kubectl
         uses: azure/setup-kubectl@v3
@@ -841,9 +876,12 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-          aws-region: ${{ env.AWS_REGION }}
-          role-session-name: github-actions-cleanup
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          # role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          # aws-region: ${{ env.AWS_REGION }}
+          # role-session-name: github-actions-cleanup
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
