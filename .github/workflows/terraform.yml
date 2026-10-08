@@ -199,8 +199,8 @@ jobs:
         run: |
           cd terraform/cluster
           CLUSTER_ENDPOINT=$(terraform output -raw cluster_endpoint)
-          echo "CLUSTER_ENDPOINT=$CLUSTER_ENDPOINT" >> $GITHUB_ENV
-          echo "✅ Cluster endpoint exported"
+          echo "✅ Cluster endpoint: $CLUSTER_ENDPOINT"
+          # Note: Not exporting to $GITHUB_ENV due to special characters in URL
 
       - name: Upload Terraform state
         if: always()
