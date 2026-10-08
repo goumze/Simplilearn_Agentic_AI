@@ -207,27 +207,27 @@ jobs:
           export TF_LOG=""
           export TF_LOG_PATH="/dev/null"
           
-          # Extract outputs and remove debug logs using field separator
-          # If terraform output contains "value::debug::...", extract only "value" part
-          CLUSTER_NAME=$(terraform output -raw cluster_name 2>&1 | awk -F'::' '{print $1}')
-          CLUSTER_SUFFIX=$(terraform output -raw cluster_suffix 2>&1 | awk -F'::' '{print $1}')
-          CLUSTER_ENDPOINT=$(terraform output -raw cluster_endpoint 2>&1 | awk -F'::' '{print $1}')
+          # Use terraform output -json to get clean JSON output, avoiding debug log interference
+          OUTPUTS=$(terraform output -json 2>&1 | grep -v '::debug::')
           
-          # Trim any trailing whitespace
-          CLUSTER_NAME=$(echo "${CLUSTER_NAME}" | xargs)
-          CLUSTER_SUFFIX=$(echo "${CLUSTER_SUFFIX}" | xargs)
-          CLUSTER_ENDPOINT=$(echo "${CLUSTER_ENDPOINT}" | xargs)
+          # Parse JSON with jq to extract values cleanly
+          CLUSTER_NAME=$(echo "${OUTPUTS}" | jq -r '.cluster_name.value // empty')
+          CLUSTER_SUFFIX=$(echo "${OUTPUTS}" | jq -r '.cluster_suffix.value // empty')
+          CLUSTER_ENDPOINT=$(echo "${OUTPUTS}" | jq -r '.cluster_endpoint.value // empty')
           
           # Validate outputs are not empty
-          if [ -z "${CLUSTER_NAME}" ]; then
+          if [ -z "${CLUSTER_NAME}" ] || [ "${CLUSTER_NAME}" == "null" ]; then
             echo "❌ Failed to extract cluster name"
-            echo "Raw output was:"
-            terraform output -raw cluster_name 2>&1
+            echo "Raw terraform output:"
+            terraform output -json 2>&1 | head -50
             exit 1
           fi
           
-          echo "cluster_name=${CLUSTER_NAME}" >> $GITHUB_OUTPUT
-          echo "cluster_suffix=${CLUSTER_SUFFIX}" >> $GITHUB_OUTPUT
+          # Write to GITHUB_OUTPUT with proper escaping
+          {
+            echo "cluster_name=${CLUSTER_NAME}"
+            echo "cluster_suffix=${CLUSTER_SUFFIX}"
+          } >> $GITHUB_OUTPUT
           
           echo "✅ Cluster Name: ${CLUSTER_NAME}"
           echo "✅ Cluster Suffix: ${CLUSTER_SUFFIX}"
