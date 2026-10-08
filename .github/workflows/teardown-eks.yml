@@ -239,7 +239,7 @@ jobs:
 
       - name: Upload Terraform state
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: terraform-bootstrap-destroy-state
           path: terraform/bootstrap/terraform.tfstate*
@@ -290,7 +290,7 @@ jobs:
 
       - name: Upload Terraform state
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: terraform-cluster-destroy-state
           path: terraform/cluster/terraform.tfstate*
@@ -456,7 +456,7 @@ jobs:
           cat teardown-report.md >> $GITHUB_STEP_SUMMARY
 
       - name: Upload teardown report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: teardown-report
           path: teardown-report.md
