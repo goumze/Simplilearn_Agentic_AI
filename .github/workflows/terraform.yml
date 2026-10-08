@@ -89,19 +89,18 @@ jobs:
           disable_signature_validation = true
           EOF
           
+          # Verify the file was created with correct content
+          echo "📄 .terraformrc file contents:"
+          cat ~/.terraformrc
+          
           # Set environment variables for Terraform
           echo "TF_CLI_CONFIG_FILE=$HOME/.terraformrc" >> $GITHUB_ENV
-          echo "TF_SKIP_PROVIDER_VERIFICATION=true" >> $GITHUB_ENV
           echo "✅ Terraform configured to skip provider signature validation"
-          
-          # Verify the file was created
-          if [ -f ~/.terraformrc ]; then
-            echo "✅ .terraformrc file created successfully"
-            cat ~/.terraformrc
-          fi
 
       - name: Initialize Terraform (cluster)
         run: |
+          set -o pipefail
+          
           cd terraform/cluster
           # Aggressive cleanup of terraform artifacts
           rm -rf .terraform .terraform.lock.hcl .terraform.lock.hcl.* 2>/dev/null || true
@@ -111,17 +110,29 @@ jobs:
             rm -f .terraform.lock.hcl
           fi
           
-          # Initialize Terraform with proper env vars
-          echo "TF_CLI_CONFIG_FILE: $TF_CLI_CONFIG_FILE"
-          echo "Attempting basic terraform init (no -upgrade)..."
+          # Verify .terraformrc file exists before init
+          if [ ! -f ~/.terraformrc ]; then
+            echo "❌ .terraformrc file not found! Creating it now..."
+            cat > ~/.terraformrc << 'EOF'
+          disable_signature_validation = true
+          EOF
+          fi
+          
+          echo "📄 Using .terraformrc:"
+          cat ~/.terraformrc
+          
+          # Initialize Terraform with explicit environment variable
+          echo "TF_CLI_CONFIG_FILE=$HOME/.terraformrc"
+          export TF_CLI_CONFIG_FILE="$HOME/.terraformrc"
+          echo "Attempting terraform init..."
           
           # Try basic init - this should complete even with signature errors
           if terraform init 2>&1 | tee init.log; then
-            INIT_EXIT=$?
-            echo "✅ Terraform init returned exit code: $INIT_EXIT"
+            INIT_EXIT=0
+            echo "✅ Terraform init completed successfully"
           else
             INIT_EXIT=$?
-            echo "⚠️ Init returned exit code: $INIT_EXIT"
+            echo "⚠️ Terraform init exited with code: $INIT_EXIT"
           fi
           
           # Verify lock file was created and is not empty
@@ -133,10 +144,13 @@ jobs:
             else
               echo "❌ Lock file is empty or corrupted, cleaning and retrying..."
               rm -rf .terraform .terraform.lock.hcl
+              export TF_CLI_CONFIG_FILE="$HOME/.terraformrc"
               terraform init 2>&1 | tee init-retry.log
             fi
           else
-            echo "❌ Lock file was not created, terraform init may have failed"
+            echo "❌ Lock file was not created after init"
+            echo "Checking init.log for errors..."
+            tail -50 init.log
             exit 1
           fi
           
@@ -292,6 +306,8 @@ jobs:
 
       - name: Initialize Terraform (bootstrap)
         run: |
+          set -o pipefail
+          
           cd terraform/bootstrap
           # Aggressive cleanup of terraform artifacts
           rm -rf .terraform .terraform.lock.hcl .terraform.lock.hcl.* 2>/dev/null || true
@@ -301,17 +317,29 @@ jobs:
             rm -f .terraform.lock.hcl
           fi
           
-          # Initialize Terraform with proper env vars
-          echo "TF_CLI_CONFIG_FILE: $TF_CLI_CONFIG_FILE"
-          echo "Attempting basic terraform init (no -upgrade)..."
+          # Verify .terraformrc file exists before init
+          if [ ! -f ~/.terraformrc ]; then
+            echo "❌ .terraformrc file not found! Creating it now..."
+            cat > ~/.terraformrc << 'EOF'
+          disable_signature_validation = true
+          EOF
+          fi
+          
+          echo "📄 Using .terraformrc:"
+          cat ~/.terraformrc
+          
+          # Initialize Terraform with explicit environment variable
+          echo "TF_CLI_CONFIG_FILE=$HOME/.terraformrc"
+          export TF_CLI_CONFIG_FILE="$HOME/.terraformrc"
+          echo "Attempting terraform init..."
           
           # Try basic init - this should complete even with signature errors
           if terraform init 2>&1 | tee init.log; then
-            INIT_EXIT=$?
-            echo "✅ Terraform init returned exit code: $INIT_EXIT"
+            INIT_EXIT=0
+            echo "✅ Terraform init completed successfully"
           else
             INIT_EXIT=$?
-            echo "⚠️ Init returned exit code: $INIT_EXIT"
+            echo "⚠️ Terraform init exited with code: $INIT_EXIT"
           fi
           
           # Verify lock file was created and is not empty
@@ -323,10 +351,13 @@ jobs:
             else
               echo "❌ Lock file is empty or corrupted, cleaning and retrying..."
               rm -rf .terraform .terraform.lock.hcl
+              export TF_CLI_CONFIG_FILE="$HOME/.terraformrc"
               terraform init 2>&1 | tee init-retry.log
             fi
           else
-            echo "❌ Lock file was not created, terraform init may have failed"
+            echo "❌ Lock file was not created after init"
+            echo "Checking init.log for errors..."
+            tail -50 init.log
             exit 1
           fi
           
@@ -819,7 +850,16 @@ jobs:
 
       - name: Cleanup resources
         run: |
+          set -o pipefail
           echo "⚠️  Cleaning up resources due to deployment failure..."
+          
+          # Verify .terraformrc file exists
+          if [ ! -f ~/.terraformrc ]; then
+            echo "Creating .terraformrc file..."
+            cat > ~/.terraformrc << 'EOF'
+          disable_signature_validation = true
+          EOF
+          fi
           
           cd terraform/bootstrap
           # Aggressive cleanup
@@ -828,8 +868,8 @@ jobs:
             rm -f .terraform.lock.hcl
           fi
           
-          echo "TF_CLI_CONFIG_FILE: $TF_CLI_CONFIG_FILE"
           echo "Attempting terraform init for bootstrap..."
+          export TF_CLI_CONFIG_FILE="$HOME/.terraformrc"
           
           if terraform init 2>&1 | tee init.log; then
             if [ -f .terraform.lock.hcl ] && grep -q "provider.*hashicorp" .terraform.lock.hcl; then
@@ -854,8 +894,8 @@ jobs:
             rm -f .terraform.lock.hcl
           fi
           
-          echo "TF_CLI_CONFIG_FILE: $TF_CLI_CONFIG_FILE"
           echo "Attempting terraform init for cluster..."
+          export TF_CLI_CONFIG_FILE="$HOME/.terraformrc"
           
           if terraform init 2>&1 | tee init.log; then
             if [ -f .terraform.lock.hcl ] && grep -q "provider.*hashicorp" .terraform.lock.hcl; then
