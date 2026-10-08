@@ -232,6 +232,14 @@ jobs:
             echo "⚠️  Cluster not found in AWS"
           fi
 
+      - name: Download Terraform state (bootstrap)
+        if: steps.check_cluster.outputs.cluster_exists == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: terraform-bootstrap-state
+          path: terraform/bootstrap/
+        continue-on-error: true
+
       - name: Setup Terraform
         if: steps.check_cluster.outputs.cluster_exists == 'true'
         uses: hashicorp/setup-terraform@v2
@@ -302,6 +310,14 @@ jobs:
             echo "cluster_exists=false" >> $GITHUB_OUTPUT
             echo "⚠️  Cluster not found in AWS"
           fi
+
+      - name: Download Terraform state (cluster)
+        if: steps.check_cluster.outputs.cluster_exists == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: terraform-cluster-state
+          path: terraform/cluster/
+        continue-on-error: true
 
       - name: Setup Terraform
         if: steps.check_cluster.outputs.cluster_exists == 'true'

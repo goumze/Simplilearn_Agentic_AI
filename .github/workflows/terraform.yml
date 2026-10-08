@@ -207,8 +207,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: terraform-cluster-state
-          path: terraform/cluster/tfplan
-          retention-days: 7
+          path: |
+            terraform/cluster/terraform.tfstate*
+            terraform/cluster/.terraform.lock.hcl
+          retention-days: 30
 
   update-kubeconfig:
     name: Update kubeconfig
@@ -392,6 +394,16 @@ jobs:
           kubectl -n argocd rollout status statefulset/argocd-application-controller \
             --timeout=5m
           echo "✅ ArgoCD ready"
+
+      - name: Upload Terraform state (bootstrap)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-bootstrap-state
+          path: |
+            terraform/bootstrap/terraform.tfstate*
+            terraform/bootstrap/.terraform.lock.hcl
+          retention-days: 30
 
   wait-capabilities:
     name: Wait for EKS Capabilities
