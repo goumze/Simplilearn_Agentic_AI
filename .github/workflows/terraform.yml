@@ -105,7 +105,7 @@ jobs:
           cd terraform/cluster
           # Aggressive cleanup of terraform artifacts
           rm -rf .terraform .terraform.lock.hcl .terraform.lock.hcl.* 2>/dev/null || true
-          # Verify lock file is removed
+          # Double-check lock file is gone
           if [ -f .terraform.lock.hcl ]; then
             echo "⚠️ Lock file still exists, forcing removal..."
             rm -f .terraform.lock.hcl
@@ -113,28 +113,40 @@ jobs:
           
           # Initialize Terraform with proper env vars
           echo "TF_CLI_CONFIG_FILE: $TF_CLI_CONFIG_FILE"
-          echo "Attempting terraform init -upgrade..."
+          echo "Attempting basic terraform init (no -upgrade)..."
           
-          # Try init with upgrade, capture both stdout and stderr
-          if terraform init -upgrade 2>&1 | tee init.log; then
-            echo "✅ Terraform init succeeded with -upgrade"
+          # Try basic init - this should complete even with signature errors
+          if terraform init 2>&1 | tee init.log; then
+            INIT_EXIT=$?
+            echo "✅ Terraform init returned exit code: $INIT_EXIT"
           else
-            echo "⚠️ Init with -upgrade had issues, cleaning up and retrying basic init..."
-            # Clean up any partial state
-            rm -rf .terraform .terraform.lock.hcl 2>/dev/null || true
-            # Try basic init
-            terraform init 2>&1 | tee init.log
+            INIT_EXIT=$?
+            echo "⚠️ Init returned exit code: $INIT_EXIT"
+          fi
+          
+          # Verify lock file was created and is not empty
+          if [ -f .terraform.lock.hcl ]; then
+            LOCK_SIZE=$(wc -c < .terraform.lock.hcl)
+            echo "✅ Lock file exists, size: $LOCK_SIZE bytes"
+            if grep -q "provider.*hashicorp" .terraform.lock.hcl; then
+              echo "✅ Lock file contains provider definitions"
+            else
+              echo "❌ Lock file is empty or corrupted, cleaning and retrying..."
+              rm -rf .terraform .terraform.lock.hcl
+              terraform init 2>&1 | tee init-retry.log
+            fi
+          else
+            echo "❌ Lock file was not created, terraform init may have failed"
+            exit 1
           fi
           
           # Verify providers were installed
           if [ -d .terraform/providers ]; then
-            echo "✅ Providers installed successfully"
+            echo "✅ Providers directory exists"
             find .terraform/providers -type d -name hashicorp | head -10
           else
-            echo "⚠️  Provider directory not found, but continuing..."
+            echo "⚠️  Provider directory not found"
           fi
-          # Optional format check
-          terraform fmt -check 2>/dev/null || true
         continue-on-error: false
 
       - name: Plan Terraform (cluster)
@@ -283,7 +295,7 @@ jobs:
           cd terraform/bootstrap
           # Aggressive cleanup of terraform artifacts
           rm -rf .terraform .terraform.lock.hcl .terraform.lock.hcl.* 2>/dev/null || true
-          # Verify lock file is removed
+          # Double-check lock file is gone
           if [ -f .terraform.lock.hcl ]; then
             echo "⚠️ Lock file still exists, forcing removal..."
             rm -f .terraform.lock.hcl
@@ -291,25 +303,39 @@ jobs:
           
           # Initialize Terraform with proper env vars
           echo "TF_CLI_CONFIG_FILE: $TF_CLI_CONFIG_FILE"
-          echo "Attempting terraform init -upgrade..."
+          echo "Attempting basic terraform init (no -upgrade)..."
           
-          # Try init with upgrade, capture both stdout and stderr
-          if terraform init -upgrade 2>&1 | tee init.log; then
-            echo "✅ Terraform init succeeded with -upgrade"
+          # Try basic init - this should complete even with signature errors
+          if terraform init 2>&1 | tee init.log; then
+            INIT_EXIT=$?
+            echo "✅ Terraform init returned exit code: $INIT_EXIT"
           else
-            echo "⚠️ Init with -upgrade had issues, cleaning up and retrying basic init..."
-            # Clean up any partial state
-            rm -rf .terraform .terraform.lock.hcl 2>/dev/null || true
-            # Try basic init
-            terraform init 2>&1 | tee init.log
+            INIT_EXIT=$?
+            echo "⚠️ Init returned exit code: $INIT_EXIT"
+          fi
+          
+          # Verify lock file was created and is not empty
+          if [ -f .terraform.lock.hcl ]; then
+            LOCK_SIZE=$(wc -c < .terraform.lock.hcl)
+            echo "✅ Lock file exists, size: $LOCK_SIZE bytes"
+            if grep -q "provider.*hashicorp" .terraform.lock.hcl; then
+              echo "✅ Lock file contains provider definitions"
+            else
+              echo "❌ Lock file is empty or corrupted, cleaning and retrying..."
+              rm -rf .terraform .terraform.lock.hcl
+              terraform init 2>&1 | tee init-retry.log
+            fi
+          else
+            echo "❌ Lock file was not created, terraform init may have failed"
+            exit 1
           fi
           
           # Verify providers were installed
           if [ -d .terraform/providers ]; then
-            echo "✅ Providers installed successfully"
+            echo "✅ Providers directory exists"
             find .terraform/providers -type d -name hashicorp | head -10
           else
-            echo "⚠️  Provider directory not found, but continuing..."
+            echo "⚠️  Provider directory not found"
           fi
 
       - name: Apply Terraform (bootstrap)
@@ -798,21 +824,23 @@ jobs:
           cd terraform/bootstrap
           # Aggressive cleanup
           rm -rf .terraform .terraform.lock.hcl .terraform.lock.hcl.* 2>/dev/null || true
-          # Verify lock file is removed
           if [ -f .terraform.lock.hcl ]; then
-            echo "⚠️ Lock file still exists, forcing removal..."
             rm -f .terraform.lock.hcl
           fi
           
           echo "TF_CLI_CONFIG_FILE: $TF_CLI_CONFIG_FILE"
-          echo "Attempting terraform init -upgrade for bootstrap..."
+          echo "Attempting terraform init for bootstrap..."
           
-          if terraform init -upgrade 2>&1 | tee init.log; then
-            echo "✅ Bootstrap init succeeded"
+          if terraform init 2>&1 | tee init.log; then
+            if [ -f .terraform.lock.hcl ] && grep -q "provider.*hashicorp" .terraform.lock.hcl; then
+              echo "✅ Bootstrap init succeeded"
+            else
+              echo "⚠️ Bootstrap lock file incomplete, cleaning and retrying..."
+              rm -rf .terraform .terraform.lock.hcl 2>/dev/null || true
+              terraform init 2>&1 | tee init-retry.log || true
+            fi
           else
-            echo "⚠️ Bootstrap init had issues, trying basic init..."
-            rm -rf .terraform .terraform.lock.hcl 2>/dev/null || true
-            terraform init 2>&1 | tee init.log || true
+            echo "⚠️ Bootstrap init failed, attempting destroy anyway..."
           fi
           
           terraform destroy -auto-approve \
@@ -822,21 +850,23 @@ jobs:
           cd ../cluster
           # Aggressive cleanup
           rm -rf .terraform .terraform.lock.hcl .terraform.lock.hcl.* 2>/dev/null || true
-          # Verify lock file is removed
           if [ -f .terraform.lock.hcl ]; then
-            echo "⚠️ Lock file still exists, forcing removal..."
             rm -f .terraform.lock.hcl
           fi
           
           echo "TF_CLI_CONFIG_FILE: $TF_CLI_CONFIG_FILE"
-          echo "Attempting terraform init -upgrade for cluster..."
+          echo "Attempting terraform init for cluster..."
           
-          if terraform init -upgrade 2>&1 | tee init.log; then
-            echo "✅ Cluster init succeeded"
+          if terraform init 2>&1 | tee init.log; then
+            if [ -f .terraform.lock.hcl ] && grep -q "provider.*hashicorp" .terraform.lock.hcl; then
+              echo "✅ Cluster init succeeded"
+            else
+              echo "⚠️ Cluster lock file incomplete, cleaning and retrying..."
+              rm -rf .terraform .terraform.lock.hcl 2>/dev/null || true
+              terraform init 2>&1 | tee init-retry.log || true
+            fi
           else
-            echo "⚠️ Cluster init had issues, trying basic init..."
-            rm -rf .terraform .terraform.lock.hcl 2>/dev/null || true
-            terraform init 2>&1 | tee init.log || true
+            echo "⚠️ Cluster init failed, attempting destroy anyway..."
           fi
           
           terraform destroy -auto-approve \

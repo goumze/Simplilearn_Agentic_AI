@@ -123,7 +123,7 @@ terraform {
   backend "s3" {
     bucket         = "your-terraform-state-bucket"
     key            = "eks-deployment/terraform.tfstate"
-    region         = "us-west-2"
+    region         = "ap-south-1"
     dynamodb_table = "terraform-locks"
     encrypt        = true
   }
