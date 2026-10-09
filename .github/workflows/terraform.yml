@@ -515,24 +515,6 @@ jobs:
             done
           done
 
-      - name: Wait for ResourceGraphDefinitions
-        run: |
-          echo "⏳ Waiting for kro ResourceGraphDefinitions..."
-          
-          RGD_LIST=(
-            "agentcorememory.fsi.aws.example.com"
-            "agentcorebrowser.fsi.aws.example.com"
-            "agentcorecodeinterpreter.fsi.aws.example.com"
-          )
-          
-          for rgd in "${RGD_LIST[@]}"; do
-            echo "  ⏳ Waiting for ${rgd}..."
-            kubectl wait resourcegraphdefinition/${rgd} \
-              --for=jsonpath='{.status.state}'=Active \
-              --timeout=5m || true
-            echo "  ✅ ${rgd} ready"
-          done
-
   wait-addons:
     name: Wait for Add-on Applications
     runs-on: ubuntu-latest
@@ -592,6 +574,24 @@ jobs:
               --for=jsonpath='{.status.health.status}'=Healthy \
               --timeout=10m || true
             echo "  ✅ ${app} synced and healthy"
+          done
+
+      - name: Wait for ResourceGraphDefinitions
+        run: |
+          echo "⏳ Waiting for kro ResourceGraphDefinitions..."
+          
+          RGD_LIST=(
+            "agentcorememory.fsi.aws.example.com"
+            "agentcorebrowser.fsi.aws.example.com"
+            "agentcorecodeinterpreter.fsi.aws.example.com"
+          )
+          
+          for rgd in "${RGD_LIST[@]}"; do
+            echo "  ⏳ Waiting for ${rgd}..."
+            kubectl wait resourcegraphdefinition/${rgd} \
+              --for=jsonpath='{.status.state}'=Active \
+              --timeout=5m || true
+            echo "  ✅ ${rgd} ready"
           done
 
   wait-financial-services:
