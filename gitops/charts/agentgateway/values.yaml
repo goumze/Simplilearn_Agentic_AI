@@ -1,0 +1,57 @@
+# Agent Gateway Values
+replicaCount: 2
+
+image:
+  repository: ghcr.io/kgateway-dev/agent-gateway
+  tag: v2.2.0-main
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 8080
+  metricsPort: 9090
+
+resources:
+  requests:
+    cpu: "1"
+    memory: 2Gi
+  limits:
+    cpu: "2"
+    memory: 4Gi
+
+serviceAccount:
+  create: true
+  name: agent-gateway
+
+observability:
+  enabled: true
+  opentelemetry:
+    enabled: true
+    endpoint: http://jaeger.agentgateway-system.svc.cluster.local:4317
+    protocol: grpc
+  prometheus:
+    enabled: true
+    port: 9090
+    path: /metrics
+
+security:
+  jwt:
+    enabled: true
+  mcp:
+    enabled: true
+
+# Pod settings
+podAnnotations: {}
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+# Node affinity
+affinity: {}

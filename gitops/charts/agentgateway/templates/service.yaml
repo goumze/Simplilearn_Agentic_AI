@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: agent-gateway
+  namespace: {{ .Values.namespace | default "agentgateway-system" }}
+  labels:
+    app: agent-gateway
+    version: {{ .Chart.AppVersion | quote }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+    {{- if .Values.observability.prometheus.enabled }}
+    - port: {{ .Values.observability.prometheus.port }}
+      targetPort: metrics
+      protocol: TCP
+      name: metrics
+    {{- end }}
+  selector:
+    app: agent-gateway

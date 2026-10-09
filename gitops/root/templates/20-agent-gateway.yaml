@@ -10,17 +10,34 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: ghcr.io/kgateway-dev/charts
-    chart: agentgateway
-    targetRevision: v2.2.0-main
+    repoURL: {{ .Values.gitOpsRepo.url }}
+    path: gitops/charts/agentgateway
+    targetRevision: {{ .Values.gitOpsRepo.branch }}
     helm:
       releaseName: agent-gateway
       values: |
+        namespace: agentgateway-system
+        replicaCount: 2
+        image:
+          repository: ghcr.io/kgateway-dev/agent-gateway
+          tag: v2.2.0-main
+          pullPolicy: IfNotPresent
+        service:
+          type: ClusterIP
+          port: 8080
+          metricsPort: 9090
+        resources:
+          requests:
+            cpu: "1"
+            memory: 2Gi
+        serviceAccount:
+          create: true
+          name: agent-gateway
         observability:
           enabled: true
           opentelemetry:
             enabled: true
-            endpoint: http://jaeger.{{ .Values.namespaces.agentGateway }}.svc.cluster.local:4317
+            endpoint: http://jaeger.agentgateway-system.svc.cluster.local:4317
             protocol: grpc
           prometheus:
             enabled: true
@@ -31,18 +48,6 @@ spec:
             enabled: true
           mcp:
             enabled: true
-        service:
-          type: ClusterIP
-          port: 8080
-          metricsPort: 9090
-        replicaCount: 2
-        resources:
-          requests:
-            cpu: "1"
-            memory: 2Gi
-        serviceAccount:
-          create: true
-          name: agent-gateway
   destination:
     server: https://kubernetes.default.svc
     namespace: {{ .Values.namespaces.agentGateway | quote }}
