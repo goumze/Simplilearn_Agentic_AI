@@ -1,11 +1,11 @@
 # Where this repo is hosted. Addon Applications inherit these values so a
 # single override at bootstrap time (terraform/bootstrap) propagates.
 gitOpsRepo:
-  url: https://github.com/aws-samples/containers-blog-maelstrom
-  branch: multi-agent-fsi-blog
+  url: https://github.com/goumze/Simplilearn_Agentic_AI
+  branch: feature/aws_financial_services_agentic_demo
 
-# Root path under the repo that holds the multi-agent-fsi-blog tree.
-basePath: multi-agent-fsi-blog
+# Root path under the repo that holds the gitops tree.
+basePath: ""
 
 # ArgoCD destination namespaces per addon.
 namespaces:
