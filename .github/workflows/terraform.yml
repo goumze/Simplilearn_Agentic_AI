@@ -83,6 +83,8 @@ jobs:
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: 1.6.1
+          # The wrapper appends debug lines to stdout, which breaks `terraform output -json`
+          terraform_wrapper: false
 
       - name: Configure Terraform to skip provider verification
         run: |
@@ -208,9 +210,7 @@ jobs:
           export TF_LOG_PATH=""
           export TF_INPUT=false
           
-          # Get JSON output, using sed to start from first opening brace
-          # This skips any wrapper output before the actual JSON
-          OUTPUTS=$(terraform output -json 2>/dev/null | sed -n '/^{/,$p')
+          OUTPUTS=$(terraform output -json 2>/dev/null)
           
           # Validate we got valid JSON before parsing
           if ! echo "${OUTPUTS}" | jq empty 2>/dev/null; then
