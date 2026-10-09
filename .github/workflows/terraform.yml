@@ -524,7 +524,7 @@ jobs:
     permissions:
       id-token: write
       contents: read
-    timeout-minutes: 30
+    timeout-minutes: 20
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -567,12 +567,23 @@ jobs:
           
           for app in "${APPS[@]}"; do
             echo "  ⏳ Waiting for ${app}..."
+            
+            # Heavy applications (large images, many resources) need more time
+            case "$app" in
+              agent-gateway|agent-gateway-config|litellm|financial-services)
+                TIMEOUT="2m"
+                ;;
+              *)
+                TIMEOUT="1m"
+                ;;
+            esac
+            
             kubectl -n argocd wait application/"${app}" \
               --for=jsonpath='{.status.sync.status}'=Synced \
-              --timeout=10m || true
+              --timeout="${TIMEOUT}"
             kubectl -n argocd wait application/"${app}" \
               --for=jsonpath='{.status.health.status}'=Healthy \
-              --timeout=10m || true
+              --timeout="${TIMEOUT}"
             echo "  ✅ ${app} synced and healthy"
           done
 
@@ -590,7 +601,7 @@ jobs:
             echo "  ⏳ Waiting for ${rgd}..."
             kubectl wait resourcegraphdefinition/${rgd} \
               --for=jsonpath='{.status.state}'=Active \
-              --timeout=5m || true
+              --timeout=5m
             echo "  ✅ ${rgd} ready"
           done
 
@@ -634,7 +645,7 @@ jobs:
           echo "⏳ Waiting for financial-services Application..."
           kubectl -n argocd wait application/financial-services \
             --for=jsonpath='{.status.sync.status}'=Synced \
-            --timeout=15m || true
+            --timeout=2m
           echo "✅ financial-services synced"
 
       - name: Wait for AgentCore resources
@@ -646,7 +657,7 @@ jobs:
             echo "  ⏳ Waiting for ${r}..."
             kubectl -n financial-services wait "${r}" \
               --for=condition=ACK.ResourceSynced \
-              --timeout=10m || true
+              --timeout=10m
           done
           
           # Wait for Browser resources
@@ -654,7 +665,7 @@ jobs:
             echo "  ⏳ Waiting for ${r}..."
             kubectl -n financial-services wait "${r}" \
               --for=condition=ACK.ResourceSynced \
-              --timeout=10m || true
+              --timeout=10m
           done
           
           # Wait for CodeInterpreter resources
@@ -662,7 +673,7 @@ jobs:
             echo "  ⏳ Waiting for ${r}..."
             kubectl -n financial-services wait "${r}" \
               --for=condition=ACK.ResourceSynced \
-              --timeout=10m || true
+              --timeout=10m
           done
           
           echo "✅ AgentCore resources synced"
