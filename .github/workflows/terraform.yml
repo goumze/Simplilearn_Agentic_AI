@@ -571,19 +571,43 @@ jobs:
             # Heavy applications (large images, many resources) need more time
             case "$app" in
               agent-gateway|agent-gateway-config|litellm|financial-services)
-                TIMEOUT="2m"
+                TIMEOUT="5m"
                 ;;
               *)
-                TIMEOUT="1m"
+                TIMEOUT="2m"
                 ;;
             esac
             
-            kubectl -n argocd wait application/"${app}" \
+            # Show current app status before waiting
+            echo "    Status before wait:"
+            kubectl -n argocd get application "${app}" -o json | jq '{sync: .status.sync.status, health: .status.health.status, phase: .status.operationState.phase}' || true
+            
+            if kubectl -n argocd wait application/"${app}" \
               --for=jsonpath='{.status.sync.status}'=Synced \
-              --timeout="${TIMEOUT}"
-            kubectl -n argocd wait application/"${app}" \
+              --timeout="${TIMEOUT}"; then
+              echo "    ✅ ${app} synced"
+            else
+              WAIT_EXIT=$?
+              echo "    ⚠️ ${app} sync wait failed with exit code $WAIT_EXIT"
+              echo "    Current status:"
+              kubectl -n argocd get application "${app}" -o json | jq . || true
+              echo "    Recent events:"
+              kubectl -n argocd describe application "${app}" | tail -20 || true
+              exit 1
+            fi
+            
+            if kubectl -n argocd wait application/"${app}" \
               --for=jsonpath='{.status.health.status}'=Healthy \
-              --timeout="${TIMEOUT}"
+              --timeout="${TIMEOUT}"; then
+              echo "    ✅ ${app} healthy"
+            else
+              WAIT_EXIT=$?
+              echo "    ⚠️ ${app} health wait failed with exit code $WAIT_EXIT"
+              echo "    Current status:"
+              kubectl -n argocd get application "${app}" -o json | jq . || true
+              exit 1
+            fi
+            
             echo "  ✅ ${app} synced and healthy"
           done
 
@@ -643,10 +667,24 @@ jobs:
       - name: Wait for financial-services Application
         run: |
           echo "⏳ Waiting for financial-services Application..."
-          kubectl -n argocd wait application/financial-services \
+          
+          # Show current status
+          echo "Status before wait:"
+          kubectl -n argocd get application financial-services -o json | jq '{sync: .status.sync.status, health: .status.health.status, phase: .status.operationState.phase}' || true
+          
+          if kubectl -n argocd wait application/financial-services \
             --for=jsonpath='{.status.sync.status}'=Synced \
-            --timeout=2m
-          echo "✅ financial-services synced"
+            --timeout=5m; then
+            echo "✅ financial-services synced"
+          else
+            WAIT_EXIT=$?
+            echo "⚠️ financial-services sync wait failed with exit code $WAIT_EXIT"
+            echo "Current full status:"
+            kubectl -n argocd get application financial-services -o json | jq . || true
+            echo "Recent events:"
+            kubectl -n argocd describe application financial-services | tail -30 || true
+            exit 1
+          fi
 
       - name: Wait for AgentCore resources
         run: |
