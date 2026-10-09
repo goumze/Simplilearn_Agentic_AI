@@ -1,7 +1,8 @@
 # Agent Gateway Values
-replicaCount: 2
+replicaCount: 1
 
 image:
+  # Real agent-gateway image from kgateway-dev project
   repository: ghcr.io/kgateway-dev/agent-gateway
   tag: v2.2.0-main
   pullPolicy: IfNotPresent
