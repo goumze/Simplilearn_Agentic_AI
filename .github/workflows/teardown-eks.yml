@@ -68,6 +68,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
       - name: Download Terraform state (cluster)
         uses: actions/download-artifact@v4
         with:
@@ -79,6 +86,8 @@ jobs:
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: 1.6.1
+          # The wrapper pollutes stdout and breaks $GITHUB_OUTPUT parsing
+          terraform_wrapper: false
 
       - name: Configure Terraform to skip provider verification
         run: |
@@ -113,13 +122,6 @@ jobs:
           fi
           
           echo "cluster_name=${ACTUAL_CLUSTER_NAME}" >> $GITHUB_OUTPUT
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Install kubectl
         uses: azure/setup-kubectl@v3
@@ -289,6 +291,7 @@ jobs:
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: 1.6.1
+          terraform_wrapper: false
 
       - name: Configure Terraform to skip provider verification
         run: |
@@ -407,6 +410,7 @@ jobs:
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: 1.6.1
+          terraform_wrapper: false
 
       - name: Configure Terraform to skip provider verification
         run: |
@@ -478,7 +482,7 @@ jobs:
           # Attempt destroy with the actual cluster name
           if terraform destroy -auto-approve \
             -var "aws_region=${{ env.AWS_REGION }}" \
-            -var "cluster_name=${ACTUAL_CLUSTER_NAME}" 2>&1 | tee destroy.log; then
+            -var "cluster_name=${{ env.CLUSTER_NAME }}" 2>&1 | tee destroy.log; then
             echo "✅ Cluster destroyed successfully"
           else
             # If destroy fails due to missing state, try AWS CLI removal

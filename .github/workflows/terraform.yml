@@ -972,7 +972,7 @@ jobs:
           
           terraform destroy -auto-approve \
             -var "aws_region=${{ env.AWS_REGION }}" \
-            -var "cluster_name=${{ env.CLUSTER_NAME }}" 2>&1 || true
+            -var "cluster_name=${{ needs.provision-cluster.outputs.cluster_name || env.CLUSTER_NAME }}" 2>&1 || true
           
           cd ../cluster
           # Aggressive cleanup
