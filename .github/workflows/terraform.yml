@@ -580,6 +580,7 @@ jobs:
             "agent-gateway"
             "agent-gateway-config"
             "litellm"
+            "financial-services"
           )
           
           for app in "${APPS[@]}"; do

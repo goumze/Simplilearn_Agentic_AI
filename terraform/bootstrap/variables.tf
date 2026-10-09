@@ -23,19 +23,19 @@ variable "argocd_domain" {
 }
 
 variable "gitops_repo_url" {
-  description = "Git repository URL hosting the multi-agent-fsi-blog/gitops tree"
+  description = "Git repository URL hosting the gitops tree"
   type        = string
-  default     = "https://github.com/aws-samples/containers-blog-maelstrom"
+  default     = "https://github.com/goumze/Simplilearn_Agentic_AI"
 }
 
 variable "gitops_repo_branch" {
   description = "Branch ArgoCD should track"
   type        = string
-  default     = "multi-agent-fsi-blog"
+  default     = "feature/aws_financial_services_agentic_demo"
 }
 
 variable "gitops_root_path" {
   description = "Path to the app-of-apps root within the repo"
   type        = string
-  default     = "multi-agent-fsi-blog/gitops/root"
+  default     = "gitops/root"
 }
