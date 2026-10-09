@@ -19,7 +19,7 @@ spec:
   source:
     repoURL: {{ .Values.gitOpsRepo.url | quote }}
     targetRevision: {{ .Values.gitOpsRepo.branch | quote }}
-    path: {{ printf "%s/gitops/addons/auto-mode-defaults" .Values.basePath | quote }}
+    path: "{{ if .Values.basePath }}{{ .Values.basePath }}/{{ end }}gitops/addons/auto-mode-defaults"
   destination:
     server: https://kubernetes.default.svc
     namespace: default

@@ -19,7 +19,7 @@ spec:
   source:
     repoURL: {{ .Values.gitOpsRepo.url | quote }}
     targetRevision: {{ .Values.gitOpsRepo.branch | quote }}
-    path: {{ printf "%s/gitops/addons/agentcore-rgds" .Values.basePath | quote }}
+    path: "{{ if .Values.basePath }}{{ .Values.basePath }}/{{ end }}gitops/addons/agentcore-rgds"
   destination:
     server: https://kubernetes.default.svc
     namespace: {{ .Values.namespaces.agentcoreRgds | quote }}

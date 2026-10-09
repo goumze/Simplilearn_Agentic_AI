@@ -4,7 +4,9 @@ gitOpsRepo:
   url: https://github.com/goumze/Simplilearn_Agentic_AI
   branch: feature/aws_financial_services_agentic_demo
 
-# Root path under the repo that holds the gitops tree.
+# Root path under the repo. The templates use printf "%s/gitops/..." so this
+# should NOT start with / and the printf will properly join it with /gitops/.
+# Use empty string to make basePath/gitops/addons/... format work as gitops/addons/...
 basePath: ""
 
 # ArgoCD destination namespaces per addon.
