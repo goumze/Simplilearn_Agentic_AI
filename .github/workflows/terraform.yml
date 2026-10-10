@@ -589,6 +589,20 @@ jobs:
                 break
               fi
               
+              # ArgoCD's resource cache sometimes can't diff CRD-backed resources right
+              # after the CRDs are established, leaving sync stuck at "Unknown" even
+              # though every workload is Healthy. Nudge a hard refresh periodically and,
+              # once the pods have been confirmed Healthy for a while, stop blocking on it.
+              if [ "$HEALTH_STATUS" = "Healthy" ] && [ "$SYNC_STATUS" = "Unknown" ]; then
+                if [ $((i % 20)) -eq 0 ]; then
+                  kubectl -n argocd annotate application "${app}" argocd.argoproj.io/refresh=hard --overwrite >/dev/null 2>&1 || true
+                fi
+                if [ $i -ge 60 ]; then
+                  echo "    ⚠️  ${app} is Healthy but sync=Unknown (known ArgoCD CRD-diff quirk) - accepting"
+                  break
+                fi
+              fi
+              
               if [ $i -eq 300 ]; then
                 echo "    ❌ Timeout waiting for ${app}"
                 echo "    Final status:"
@@ -682,6 +696,19 @@ jobs:
             if [ "$SYNC_STATUS" = "OutOfSync" ] && [ "$HEALTH_STATUS" = "Healthy" ]; then
               echo "✅ financial-services deployed (OutOfSync but healthy)"
               break
+            fi
+            
+            # Known ArgoCD quirk: CRD-backed resources can leave sync stuck at
+            # "Unknown" even though everything is Healthy. Nudge a hard refresh,
+            # then stop blocking once Healthy has held for a while.
+            if [ "$HEALTH_STATUS" = "Healthy" ] && [ "$SYNC_STATUS" = "Unknown" ]; then
+              if [ $((i % 20)) -eq 0 ]; then
+                kubectl -n argocd annotate application financial-services argocd.argoproj.io/refresh=hard --overwrite >/dev/null 2>&1 || true
+              fi
+              if [ $i -ge 60 ]; then
+                echo "⚠️  financial-services is Healthy but sync=Unknown (known ArgoCD CRD-diff quirk) - accepting"
+                break
+              fi
             fi
             
             if [ $i -eq 300 ]; then
