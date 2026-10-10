@@ -14,6 +14,7 @@ metadata:
 spec:
   region: {{ $.Values.awsRegion }}
   name: {{ .name | replace "-" "_" }}_memory
+  description: {{ printf "%s AgentCore memory" .name | quote }}
   writeConnectionSecretName: {{ .name }}-memory-id
   tags:
     app: financial-services
@@ -34,6 +35,7 @@ metadata:
 spec:
   region: {{ $.Values.awsRegion }}
   name: {{ .name | replace "-" "_" }}_browser
+  description: {{ printf "%s AgentCore browser" .name | quote }}
   writeConnectionSecretName: {{ .name }}-browser-id
   tags:
     app: financial-services
@@ -54,6 +56,7 @@ metadata:
 spec:
   region: {{ $.Values.awsRegion }}
   name: {{ .name | replace "-" "_" }}_code_interpreter
+  description: {{ printf "%s AgentCore code interpreter" .name | quote }}
   writeConnectionSecretName: {{ .name }}-code-interpreter-id
   tags:
     app: financial-services
