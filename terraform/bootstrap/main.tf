@@ -47,6 +47,8 @@ data "aws_eks_cluster_auth" "cluster" {
   name = var.cluster_name
 }
 
+data "aws_caller_identity" "current" {}
+
 # ----------------------------------------------------------------------------
 # EKS OIDC issuer + JWKS — used by Agent Gateway to validate ServiceAccount
 # tokens. The issuer URL is cluster-specific (set at creation time). The JWKS
@@ -223,6 +225,10 @@ resource "kubectl_manifest" "root_app" {
             {
               name  = "ack.region"
               value = var.aws_region
+            },
+            {
+              name  = "ack.accountId"
+              value = data.aws_caller_identity.current.account_id
             },
           ]
         }

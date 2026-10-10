@@ -609,6 +609,9 @@ jobs:
                 kubectl -n argocd get application "${app}" -o json | jq . || true
                 echo "    Events:"
                 kubectl -n argocd describe application "${app}" | tail -20 || true
+                echo "    platform-root state:"
+                kubectl -n argocd get application platform-root -o jsonpath='{.status.sync.status} {.status.health.status} {.status.operationState.phase} {.status.operationState.message}{"\n"}' || true
+                kubectl -n argocd get applications || true
                 exit 1
               fi
               
@@ -717,6 +720,9 @@ jobs:
               kubectl -n argocd get application financial-services -o json | jq . || true
               echo "Events:"
               kubectl -n argocd describe application financial-services | tail -30 || true
+              echo "platform-root state:"
+              kubectl -n argocd get application platform-root -o jsonpath='{.status.sync.status} {.status.health.status} {.status.operationState.phase} {.status.operationState.message}{"\n"}' || true
+              kubectl -n argocd get applications || true
               exit 1
             fi
             

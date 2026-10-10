@@ -12,7 +12,9 @@ metadata:
     app: financial-services
     agent: {{ .name }}
 spec:
-  agent: {{ .name }}
+  region: {{ $.Values.awsRegion }}
+  name: {{ .name | replace "-" "_" }}_memory
+  writeConnectionSecretName: {{ .name }}-memory-id
 {{- end }}
 {{- if .agentcore.browser }}
 ---
@@ -27,7 +29,9 @@ metadata:
     app: financial-services
     agent: {{ .name }}
 spec:
-  agent: {{ .name }}
+  region: {{ $.Values.awsRegion }}
+  name: {{ .name | replace "-" "_" }}_browser
+  writeConnectionSecretName: {{ .name }}-browser-id
 {{- end }}
 {{- if .agentcore.codeInterpreter }}
 ---
@@ -42,6 +46,8 @@ metadata:
     app: financial-services
     agent: {{ .name }}
 spec:
-  agent: {{ .name }}
+  region: {{ $.Values.awsRegion }}
+  name: {{ .name | replace "-" "_" }}_code_interpreter
+  writeConnectionSecretName: {{ .name }}-code-interpreter-id
 {{- end }}
 {{- end }}

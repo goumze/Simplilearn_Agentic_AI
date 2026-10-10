@@ -12,7 +12,7 @@ spec:
   source:
     repoURL: {{ .Values.gitOpsRepo.url | quote }}
     targetRevision: {{ .Values.gitOpsRepo.branch | quote }}
-    path: "{{ if .Values.basePath }}{{ .Values.basePath }}/{{ end }}apps/financial-services/gitops/financial-services-stack"
+    path: "{{ if .Values.basePath }}{{ .Values.basePath }}/{{ end }}apps/financial_services/financial-services-stack"
     helm:
       valueFiles:
         - values.yaml

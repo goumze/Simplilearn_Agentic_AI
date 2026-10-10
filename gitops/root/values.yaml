@@ -25,6 +25,7 @@ namespaces:
 ack:
   clusterName: finops-agents
   region: us-west-2
+  accountId: ""
 
 # EKS cluster identity used by Agent Gateway to validate ServiceAccount tokens.
 # These are populated at bootstrap time by terraform/bootstrap (helm.parameters
