@@ -110,6 +110,9 @@ resource "helm_release" "argocd" {
     yamlencode({
       global = {
         domain = var.argocd_domain
+        networkPolicy = {
+          create = false
+        }
       }
       # ArgoCD's default resources are `{}` (no requests/limits). On a
       # busy cluster the application-controller spends most of its time

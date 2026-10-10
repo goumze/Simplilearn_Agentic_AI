@@ -11,9 +11,9 @@ variable "cluster_name" {
 }
 
 variable "argocd_chart_version" {
-  description = "argo-cd Helm chart version"
+  description = "argo-cd Helm chart version (Argo CD 3.x; 2.12 cannot diff Deployments on Kubernetes 1.33+)"
   type        = string
-  default     = "7.6.12"
+  default     = "10.10.2"
 }
 
 variable "argocd_domain" {
