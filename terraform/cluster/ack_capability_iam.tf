@@ -194,6 +194,21 @@ resource "aws_eks_capability" "kro" {
   tags = local.tags
 }
 
+# The managed kro access entry only carries AmazonEKSKROPolicy, which cannot
+# read/write the ACK custom resources an RGD composes (bedrockagentcorecontrol
+# Memory/Browser/CodeInterpreter), so claims stall with "forbidden".
+resource "aws_eks_access_policy_association" "kro_cluster_admin" {
+  cluster_name  = module.eks.cluster_name
+  principal_arn = aws_iam_role.kro_capability.arn
+  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+
+  access_scope {
+    type = "cluster"
+  }
+
+  depends_on = [aws_eks_capability.kro]
+}
+
 # ----------------------------------------------------------------------------
 # LiteLLM Bedrock role.
 #
