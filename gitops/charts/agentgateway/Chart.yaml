@@ -1,6 +1,0 @@
-apiVersion: v2
-name: agentgateway
-description: Agent Gateway Helm Chart for local deployment
-type: application
-version: 2.2.0-main
-appVersion: "2.2.0-main"
