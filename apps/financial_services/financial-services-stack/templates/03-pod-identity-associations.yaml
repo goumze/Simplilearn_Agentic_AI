@@ -1,0 +1,20 @@
+{{- range .Values.agents }}
+---
+apiVersion: eks.services.k8s.aws/v1alpha1
+kind: PodIdentityAssociation
+metadata:
+  name: fs-{{ .name }}-pia
+  namespace: {{ $.Values.namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  roleArn: arn:aws:iam::{{ $.Values.awsAccountId }}:role/fs-{{ .name }}-role
+  serviceAccount:
+    name: {{ .name }}-sa
+    namespace: {{ $.Values.namespace }}
+  tags:
+    - key: app
+      value: financial-services
+    - key: agent
+      value: {{ .name }}
+{{- end }}

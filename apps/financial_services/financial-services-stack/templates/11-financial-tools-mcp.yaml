@@ -1,0 +1,89 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: financial-tools-mcp-sa
+  namespace: {{ .Values.namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+  labels:
+    app: financial-services
+    component: financial-tools-mcp
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: financial-tools-mcp
+  namespace: {{ .Values.namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+  labels:
+    app: financial-services
+    component: financial-tools-mcp
+spec:
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
+      protocol: TCP
+  selector:
+    app: financial-services
+    component: financial-tools-mcp
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: financial-tools-mcp
+  namespace: {{ .Values.namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+  labels:
+    app: financial-services
+    component: financial-tools-mcp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: financial-services
+      component: financial-tools-mcp
+  template:
+    metadata:
+      labels:
+        app: financial-services
+        component: financial-tools-mcp
+    spec:
+      serviceAccountName: financial-tools-mcp-sa
+      containers:
+        - name: financial-tools-mcp
+          image: "{{ .Values.images.registry }}/{{ .Values.images.mcpServer.repository }}:{{ .Values.images.mcpServer.tag }}"
+          imagePullPolicy: {{ .Values.images.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+          env:
+            - name: MCP_SERVER_NAME
+              value: financial-tools-mcp
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 2
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: 500m
+              memory: 1Gi

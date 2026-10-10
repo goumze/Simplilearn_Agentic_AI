@@ -1,0 +1,47 @@
+{{- range .Values.agents }}
+{{- if .agentcore.memory }}
+---
+apiVersion: fsi.aws.example.com/v1alpha1
+kind: AgentCoreMemory
+metadata:
+  name: {{ .name }}-memory
+  namespace: {{ $.Values.namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+  labels:
+    app: financial-services
+    agent: {{ .name }}
+spec:
+  agent: {{ .name }}
+{{- end }}
+{{- if .agentcore.browser }}
+---
+apiVersion: fsi.aws.example.com/v1alpha1
+kind: AgentCoreBrowser
+metadata:
+  name: {{ .name }}-browser
+  namespace: {{ $.Values.namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+  labels:
+    app: financial-services
+    agent: {{ .name }}
+spec:
+  agent: {{ .name }}
+{{- end }}
+{{- if .agentcore.codeInterpreter }}
+---
+apiVersion: fsi.aws.example.com/v1alpha1
+kind: AgentCoreCodeInterpreter
+metadata:
+  name: {{ .name }}-code-interpreter
+  namespace: {{ $.Values.namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+  labels:
+    app: financial-services
+    agent: {{ .name }}
+spec:
+  agent: {{ .name }}
+{{- end }}
+{{- end }}

@@ -1,0 +1,162 @@
+{{- range .Values.agents }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .name }}
+  namespace: {{ $.Values.namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+  labels:
+    app: financial-services
+    agent: {{ .name }}
+    role: {{ .role }}
+spec:
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
+      protocol: TCP
+  selector:
+    app: financial-services
+    agent: {{ .name }}
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .name }}
+  namespace: {{ $.Values.namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+  labels:
+    app: financial-services
+    agent: {{ .name }}
+    role: {{ .role }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: financial-services
+      agent: {{ .name }}
+  template:
+    metadata:
+      labels:
+        app: financial-services
+        agent: {{ .name }}
+        role: {{ .role }}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: {{ .name }}-sa
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+        - name: {{ .name }}
+          image: "{{ $.Values.images.registry }}/{{ .image.repository }}:{{ .image.tag }}"
+          imagePullPolicy: {{ $.Values.images.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+          env:
+            - name: AGENT_NAME
+              value: {{ .name }}
+            - name: AGENT_ROLE
+              value: {{ .role }}
+            - name: AGENT_NAMESPACE
+              value: {{ $.Values.namespace }}
+            - name: AWS_REGION
+              value: {{ $.Values.awsRegion }}
+            - name: EKS_CLUSTER_NAME
+              value: {{ $.Values.eksClusterName }}
+            - name: BEDROCK_MODEL_ID
+              value: {{ $.Values.bedrockModelId }}
+            - name: GATEWAY_URL
+              value: {{ $.Values.agentGateway.url }}
+            - name: GATEWAY_AUDIENCE
+              value: {{ $.Values.agentGateway.audience }}
+            - name: LITELLM_URL
+              value: {{ $.Values.litellm.url }}
+            - name: LITELLM_MODEL
+              value: {{ $.Values.litellm.model }}
+            - name: LITELLM_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.litellm.apiKeySecret.name }}
+                  key: {{ $.Values.litellm.apiKeySecret.key }}
+            - name: MCP_SERVER_URL
+              value: http://financial-tools-mcp.{{ $.Values.namespace }}.svc.cluster.local:8000
+            {{- if .agentcore.memory }}
+            - name: AGENTCORE_MEMORY_ENABLED
+              value: "true"
+            - name: AGENTCORE_MEMORY_RESOURCE
+              value: {{ .name }}-memory.{{ $.Values.namespace }}.svc.cluster.local
+            {{- end }}
+            {{- if .agentcore.browser }}
+            - name: AGENTCORE_BROWSER_ENABLED
+              value: "true"
+            - name: AGENTCORE_BROWSER_RESOURCE
+              value: {{ .name }}-browser.{{ $.Values.namespace }}.svc.cluster.local
+            {{- end }}
+            {{- if .agentcore.codeInterpreter }}
+            - name: AGENTCORE_CODE_INTERPRETER_ENABLED
+              value: "true"
+            - name: AGENTCORE_CODE_INTERPRETER_RESOURCE
+              value: {{ .name }}-code-interpreter.{{ $.Values.namespace }}.svc.cluster.local
+            {{- end }}
+            {{- if .tools }}
+            - name: ALLOWED_TOOLS
+              value: {{ join "," .tools | quote }}
+            {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 2
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: 1000m
+              memory: 2Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: cache
+              mountPath: /home/appuser/.cache
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: cache
+          emptyDir: {}
+      nodeSelector:
+        karpenter.sh/capacity-type: on-demand
+      tolerations:
+        - key: app
+          operator: Equal
+          value: financial-services
+          effect: NoSchedule
+{{- end }}

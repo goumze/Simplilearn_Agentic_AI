@@ -1,0 +1,44 @@
+{{- range .Values.agents }}
+---
+apiVersion: iam.services.k8s.aws/v1alpha1
+kind: Role
+metadata:
+  name: fs-{{ .name }}-role
+  namespace: {{ $.Values.namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  name: fs-{{ .name }}-role
+  assumeRolePolicyDocument: |
+    {
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Effect": "Allow",
+          "Principal": {
+            "Federated": "arn:aws:iam::{{ $.Values.awsAccountId }}:oidc-provider/{{ $.Values.eks.oidcIssuer | trimPrefix "https://" }}"
+          },
+          "Action": "sts:AssumeRoleWithWebIdentity",
+          "Condition": {
+            "StringEquals": {
+              "{{ $.Values.eks.oidcIssuer | trimPrefix "https://" }}:sub": "system:serviceaccount:{{ $.Values.namespace }}:{{ .name }}-sa"
+            }
+          }
+        }
+      ]
+    }
+  inlinePolicies:
+    bedrock-invoke:
+      Version: "2012-10-17"
+      Statement:
+        - Effect: Allow
+          Action:
+            - bedrock:InvokeModel
+            - bedrock:InvokeModelWithResponseStream
+          Resource: "*"
+  tags:
+    - key: app
+      value: financial-services
+    - key: agent
+      value: {{ .name }}
+{{- end }}

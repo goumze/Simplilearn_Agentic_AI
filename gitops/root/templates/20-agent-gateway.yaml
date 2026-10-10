@@ -15,7 +15,6 @@ spec:
     targetRevision: v1.6.0
     helm:
       releaseName: agent-gateway
-      skipCrds: false
   destination:
     server: https://kubernetes.default.svc
     namespace: {{ .Values.namespaces.agentGateway | quote }}

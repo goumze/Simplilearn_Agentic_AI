@@ -31,6 +31,8 @@ spec:
           value: {{ .Values.ack.clusterName | quote }}
         - name: awsRegion
           value: {{ .Values.ack.region | quote }}
+        - name: awsAccountId
+          value: {{ .Values.ack.accountId | quote }}
   destination:
     server: https://kubernetes.default.svc
     namespace: {{ .Values.namespaces.financialServices | quote }}

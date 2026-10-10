@@ -4,6 +4,7 @@ version: v1
 
 # AWS / EKS
 awsRegion: us-west-2
+awsAccountId: ""  # Populated by ArgoCD root chart from terraform
 eksClusterName: finops-agents
 networkMode: PUBLIC
 

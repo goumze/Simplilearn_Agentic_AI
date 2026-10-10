@@ -13,8 +13,6 @@ spec:
     repoURL: cr.agentgateway.dev/charts
     chart: agentgateway-crds
     targetRevision: v1.6.0
-    helm:
-      skipCrds: false
   destination:
     server: https://kubernetes.default.svc
     namespace: {{ .Values.namespaces.agentGateway | quote }}
