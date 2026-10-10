@@ -15,7 +15,7 @@ spec:
   ports:
     - name: http
       port: 8000
-      targetPort: 8000
+      targetPort: 8080
       protocol: TCP
   selector:
     app: financial-services
@@ -47,7 +47,7 @@ spec:
         role: {{ .role }}
       annotations:
         prometheus.io/scrape: "true"
-        prometheus.io/port: "8000"
+        prometheus.io/port: "8080"
         prometheus.io/path: "/metrics"
     spec:
       serviceAccountName: {{ .name }}-sa
@@ -61,7 +61,7 @@ spec:
           imagePullPolicy: {{ $.Values.images.pullPolicy }}
           ports:
             - name: http
-              containerPort: 8000
+              containerPort: 8080
               protocol: TCP
           env:
             - name: AGENT_NAME
@@ -115,7 +115,7 @@ spec:
             {{- end }}
           livenessProbe:
             httpGet:
-              path: /health
+              path: /healthz
               port: http
             initialDelaySeconds: 15
             periodSeconds: 10
@@ -123,7 +123,7 @@ spec:
             failureThreshold: 3
           readinessProbe:
             httpGet:
-              path: /ready
+              path: /healthz
               port: http
             initialDelaySeconds: 10
             periodSeconds: 5

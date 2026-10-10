@@ -775,14 +775,14 @@ jobs:
             echo "  ⏳ Waiting for ${r}..."
             kubectl -n financial-services wait "${r}" \
               --for=condition=ACK.ResourceSynced \
-              --timeout=10m || true
+              --timeout=10m || { echo "❌ Timeout waiting for ${r}"; exit 1; }
           done
           
           for r in $(kubectl -n financial-services get podidentityassociations.eks.services.k8s.aws -o name 2>/dev/null); do
             echo "  ⏳ Waiting for ${r}..."
             kubectl -n financial-services wait "${r}" \
               --for=condition=ACK.ResourceSynced \
-              --timeout=10m || true
+              --timeout=10m || { echo "❌ Timeout waiting for ${r}"; exit 1; }
           done
           
           echo "✅ IAM and Pod Identity resources ready"
@@ -792,15 +792,21 @@ jobs:
           echo "✅ Verifying AgentCore IDs..."
           
           for kind in memory browser code-interpreter; do
-            for sec in $(kubectl -n financial-services get secret -o name 2>/dev/null | grep -- "-${kind}-outputs"); do
+            for sec in $(kubectl -n financial-services get secret -o name 2>/dev/null | grep -- "-${kind}-id$"); do
               echo "  ⏳ Checking ${sec}..."
+              POPULATED=false
               for i in {1..30}; do
                 if kubectl -n financial-services get "${sec}" -o jsonpath='{.data.id}' 2>/dev/null | grep -q .; then
                   echo "  ✅ ${sec} has ID populated"
+                  POPULATED=true
                   break
                 fi
                 sleep 10
               done
+              if [ "$POPULATED" != "true" ]; then
+                echo "❌ Timeout waiting for ${sec} ID"
+                exit 1
+              fi
             done
           done
 
@@ -808,6 +814,7 @@ jobs:
     name: Restart Agent Deployments
     runs-on: ubuntu-latest
     needs: [wait-financial-services, provision-cluster]
+    timeout-minutes: 30
     environment:
       name: ${{ github.event.inputs.environment }}
     permissions:
@@ -848,8 +855,9 @@ jobs:
           
           for agent in "${AGENTS[@]}"; do
             echo "  ⏳ Restarting ${agent}..."
-            kubectl -n financial-services rollout restart deploy/${agent} 2>/dev/null || echo "    (not found, skipping)"
-            kubectl -n financial-services rollout status deploy/${agent} --timeout=5m || true
+            kubectl -n financial-services rollout restart deploy/${agent}
+            kubectl -n financial-services rollout status deploy/${agent} --timeout=5m \
+              || { echo "❌ Timeout waiting for ${agent} rollout"; exit 1; }
             echo "  ✅ ${agent} restarted"
           done
 
