@@ -609,6 +609,8 @@ jobs:
                 kubectl -n argocd get application "${app}" -o json | jq . || true
                 echo "    Events:"
                 kubectl -n argocd describe application "${app}" | tail -20 || true
+                echo "    Sync operation resources:"
+                kubectl -n argocd get application "${app}" -o jsonpath='{.status.operationState.message}{"\n"}{range .status.operationState.syncResult.resources[*]}{.kind}/{.name} {.status} {.message}{"\n"}{end}' || true
                 echo "    platform-root state:"
                 kubectl -n argocd get application platform-root -o jsonpath='{.status.sync.status} {.status.health.status} {.status.operationState.phase} {.status.operationState.message}{"\n"}' || true
                 kubectl -n argocd get applications || true
@@ -720,6 +722,8 @@ jobs:
               kubectl -n argocd get application financial-services -o json | jq . || true
               echo "Events:"
               kubectl -n argocd describe application financial-services | tail -30 || true
+              echo "Sync operation resources:"
+              kubectl -n argocd get application financial-services -o jsonpath='{.status.operationState.message}{"\n"}{range .status.operationState.syncResult.resources[*]}{.kind}/{.name} {.status} {.message}{"\n"}{end}' || true
               echo "platform-root state:"
               kubectl -n argocd get application platform-root -o jsonpath='{.status.sync.status} {.status.health.status} {.status.operationState.phase} {.status.operationState.message}{"\n"}' || true
               kubectl -n argocd get applications || true

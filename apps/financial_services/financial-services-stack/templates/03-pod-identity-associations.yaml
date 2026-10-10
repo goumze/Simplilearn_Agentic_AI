@@ -6,15 +6,15 @@ metadata:
   name: fs-{{ .name }}-pia
   namespace: {{ $.Values.namespace }}
   annotations:
-    argocd.argoproj.io/sync-wave: "0"
+    argocd.argoproj.io/sync-wave: "1"
 spec:
-  roleArn: arn:aws:iam::{{ $.Values.awsAccountId }}:role/fs-{{ .name }}-role
-  serviceAccount:
-    name: {{ .name }}-sa
-    namespace: {{ $.Values.namespace }}
+  clusterName: {{ $.Values.eksClusterName }}
+  namespace: {{ $.Values.namespace }}
+  serviceAccount: {{ .name }}-sa
+  roleRef:
+    from:
+      name: fs-{{ .name }}-role
   tags:
-    - key: app
-      value: financial-services
-    - key: agent
-      value: {{ .name }}
+    app: financial-services
+    agent: {{ .name }}
 {{- end }}
