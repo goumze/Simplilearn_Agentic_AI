@@ -1,7 +1,7 @@
 {{- range .Values.agents }}
 {{- if .agentcore.memory }}
 ---
-apiVersion: fsi.aws.example.com/v1alpha1
+apiVersion: kro.run/v1alpha1
 kind: AgentCoreMemory
 metadata:
   name: {{ .name }}-memory
@@ -18,7 +18,7 @@ spec:
 {{- end }}
 {{- if .agentcore.browser }}
 ---
-apiVersion: fsi.aws.example.com/v1alpha1
+apiVersion: kro.run/v1alpha1
 kind: AgentCoreBrowser
 metadata:
   name: {{ .name }}-browser
@@ -35,7 +35,7 @@ spec:
 {{- end }}
 {{- if .agentcore.codeInterpreter }}
 ---
-apiVersion: fsi.aws.example.com/v1alpha1
+apiVersion: kro.run/v1alpha1
 kind: AgentCoreCodeInterpreter
 metadata:
   name: {{ .name }}-code-interpreter
