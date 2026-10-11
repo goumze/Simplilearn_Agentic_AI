@@ -29,3 +29,26 @@ spec:
         - name: {{ .name }}
           port: 8000
 {{- end }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: financial-tools-mcp
+  namespace: {{ .Values.namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+  labels:
+    app: financial-services
+    component: financial-tools-mcp
+spec:
+  parentRefs:
+    - name: {{ .Values.agentGateway.gatewayName }}
+      namespace: {{ .Values.agentGateway.gatewayNamespace }}
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /mcp
+      backendRefs:
+        - name: financial-tools-mcp
+          port: 8000
