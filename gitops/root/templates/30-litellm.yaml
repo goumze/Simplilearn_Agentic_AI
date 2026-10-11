@@ -13,9 +13,10 @@ spec:
     - repoURL: {{ .Values.gitOpsRepo.url | quote }}
       targetRevision: {{ .Values.gitOpsRepo.branch | quote }}
       ref: values
-    - repoURL: https://github.com/BerriAI/litellm
-      targetRevision: v1.83.10-stable
-      path: deploy/charts/litellm-helm
+    # OCI chart avoids cloning the huge BerriAI git repo (repo-server DeadlineExceeded).
+    - repoURL: ghcr.io/berriai
+      chart: litellm-helm
+      targetRevision: 1.83.10-stable
       helm:
         releaseName: litellm
         valueFiles:
