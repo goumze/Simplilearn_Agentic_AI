@@ -33,6 +33,11 @@ spec:
               "bedrock:InvokeModelWithResponseStream"
             ],
             "Resource": "*"
+          },
+          {
+            "Effect": "Allow",
+            "Action": "bedrock-agentcore:*",
+            "Resource": "*"
           }
         ]
       }

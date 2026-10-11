@@ -96,18 +96,33 @@ spec:
               value: "true"
             - name: AGENTCORE_MEMORY_RESOURCE
               value: {{ .name }}-memory.{{ $.Values.namespace }}.svc.cluster.local
+            - name: MEMORY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .name }}-memory-id
+                  key: id
             {{- end }}
             {{- if .agentcore.browser }}
             - name: AGENTCORE_BROWSER_ENABLED
               value: "true"
             - name: AGENTCORE_BROWSER_RESOURCE
               value: {{ .name }}-browser.{{ $.Values.namespace }}.svc.cluster.local
+            - name: BROWSER_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .name }}-browser-id
+                  key: id
             {{- end }}
             {{- if .agentcore.codeInterpreter }}
             - name: AGENTCORE_CODE_INTERPRETER_ENABLED
               value: "true"
             - name: AGENTCORE_CODE_INTERPRETER_RESOURCE
               value: {{ .name }}-code-interpreter.{{ $.Values.namespace }}.svc.cluster.local
+            - name: CODE_INTERPRETER_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .name }}-code-interpreter-id
+                  key: id
             {{- end }}
             {{- if .tools }}
             - name: ALLOWED_TOOLS
