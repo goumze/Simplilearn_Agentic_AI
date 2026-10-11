@@ -162,11 +162,21 @@ spec:
               mountPath: /tmp
             - name: cache
               mountPath: /home/appuser/.cache
+            - name: agent-gateway-token
+              mountPath: /var/run/secrets/agent-gateway
+              readOnly: true
       volumes:
         - name: tmp
           emptyDir: {}
         - name: cache
           emptyDir: {}
+        - name: agent-gateway-token
+          projected:
+            sources:
+              - serviceAccountToken:
+                  audience: {{ $.Values.agentGateway.audience }}
+                  expirationSeconds: {{ $.Values.agentGateway.tokenExpirationSeconds }}
+                  path: token
       nodeSelector:
         karpenter.sh/capacity-type: on-demand
       tolerations:

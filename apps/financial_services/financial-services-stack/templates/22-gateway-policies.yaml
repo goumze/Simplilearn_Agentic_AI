@@ -1,0 +1,86 @@
+{{- if .Values.eks.oidcIssuer }}
+{{- $ns := .Values.namespace }}
+{{- $orchestrators := list }}
+{{- $specialists := list }}
+{{- range .Values.agents }}
+{{- $sub := printf "jwt.sub == 'system:serviceaccount:%s:%s-sa'" $ns .name }}
+{{- if eq .role "orchestrator" }}
+{{- $orchestrators = append $orchestrators $sub }}
+{{- else }}
+{{- $specialists = append $specialists $sub }}
+{{- end }}
+{{- end }}
+---
+# Authentication: every request through the gateway needs a ServiceAccount token
+# issued by this cluster's EKS OIDC provider for the agent-gateway audience.
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayPolicy
+metadata:
+  name: financial-services-jwt-authn
+  namespace: {{ .Values.agentGateway.gatewayNamespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: {{ .Values.agentGateway.gatewayName }}
+  traffic:
+    jwtAuthentication:
+      mode: Strict
+      providers:
+        - issuer: {{ .Values.eks.oidcIssuer | quote }}
+          audiences:
+            - {{ .Values.agentGateway.audience | quote }}
+          jwks:
+            {{- if .Values.eks.jwksJson }}
+            inline: {{ .Values.eks.jwksJson | b64dec | quote }}
+            {{- else }}
+            remote:
+              url: {{ printf "%s/keys" (trimSuffix "/" .Values.eks.oidcIssuer) | quote }}
+            {{- end }}
+{{- range .Values.agents }}
+{{- if eq .role "specialist" }}
+---
+# Authorization: specialists only accept calls made with an orchestrator's token.
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayPolicy
+metadata:
+  name: {{ .name }}-a2a-authz
+  namespace: {{ $ns }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: {{ .name }}
+  traffic:
+    authorization:
+      action: Allow
+      policy:
+        matchExpressions:
+          - {{ join " || " $orchestrators | quote }}
+{{- end }}
+{{- end }}
+---
+# Authorization: only specialists call MCP tools; the orchestrator delegates instead.
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayPolicy
+metadata:
+  name: financial-tools-mcp-authz
+  namespace: {{ $ns }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: financial-tools-mcp
+  traffic:
+    authorization:
+      action: Allow
+      policy:
+        matchExpressions:
+          - {{ join " || " $specialists | quote }}
+{{- end }}

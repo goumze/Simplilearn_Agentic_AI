@@ -1,0 +1,27 @@
+---
+# Pods are reachable only through Agent Gateway, so authn/authz cannot be bypassed
+# by calling a service (or pod IP) directly. Kubelet health probes are not affected.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ingress-from-agent-gateway-only
+  namespace: {{ .Values.namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  podSelector:
+    matchLabels:
+      app: financial-services
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.agentGateway.gatewayNamespace }}
+          podSelector:
+            matchLabels:
+              gateway.networking.k8s.io/gateway-name: {{ .Values.agentGateway.gatewayName }}
+      ports:
+        - protocol: TCP
+          port: 8080
