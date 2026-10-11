@@ -106,7 +106,7 @@ sequenceDiagram
 | 3 | Bedrock 400: on-demand throughput not supported for `amazon.nova-micro-v1:0` | Nova models in `ap-south-1` need inference profiles | Use `apac.amazon.nova-*` / `global.amazon.nova-2-lite-v1:0`; fix fallback groups | `gitops/addons/litellm/values.yaml` |
 | 4 | Specialist tools failed with `404 Not Found` | No gateway route for `/mcp` | Added `/mcp` `HTTPRoute` to `financial-tools-mcp:8000` (no path rewrite) | `21-agent-routes.yaml` |
 | 5 | `CODE_INTERPRETER_ID not set`, "technical issues" in answers | Chart never injected AgentCore IDs; agent roles had no AgentCore permissions | Inject `MEMORY_ID` / `BROWSER_ID` / `CODE_INTERPRETER_ID` from kro Secrets; add `bedrock-agentcore:*` to agent roles | `20-agent-deployments.yaml`, `01-iam-roles.yaml` |
-| 6 | Advisor asks for risk tolerance instead of delegating | `finops-primary` (Nova Micro) too weak for the tool-use workflow | Switch `finops-primary` to `apac.amazon.nova-pro-v1:0` | `gitops/addons/litellm/values.yaml` |
+| 6 | Advisor asks for risk tolerance instead of delegating | Two causes: (a) `finops-primary` (Nova Micro) too weak for the tool-use workflow; (b) each agent server keeps one long-lived `Agent`, so conversation history from earlier requests leaks into later ones (specialist logs show "reuse the previous results") | (a) Switch `finops-primary` to `apac.amazon.nova-pro-v1:0`; (b) restart pods for a clean history now, and in code build a fresh agent per request plus a prompt line to use the stated tolerance (needs image rebuild) | `gitops/addons/litellm/values.yaml`, `agents/*/server.py`, `agents/financial-advisor/agent.py` |
 
 ## Recorded outputs
 
@@ -176,6 +176,28 @@ your current risk tolerance. Are you currently leaning towards conservative,
 medium, or aggressive risk?
 ```
 
+## Re-test after all fixes (Nova Pro, agent pods restarted)
+
+Checks before the call:
+
+- LiteLLM ConfigMap has `finops-primary -> bedrock/apac.amazon.nova-pro-v1:0`; both new LiteLLM pods `Running`.
+- All four agent deployments have `CODE_INTERPRETER_ID` / `BROWSER_ID` / `MEMORY_ID` set.
+- `HTTPRoute`s present for the four agents and `financial-tools-mcp`.
+- `POST /mcp` `get_stock_price` through the gateway returned HTTP 200 with a price for AAPL.
+
+Intermediate runs (agents carrying history from earlier requests): the advisor still asked for the
+client's risk tolerance and did not delegate, first on Nova Micro, then on Nova Pro.
+
+Final run (Nova Pro, agent pods restarted so history was empty):
+
+```json
+{"result":"The total value of your portfolio is $24,562.50, with AAPL making up 71.45% and GOOGL making up 28.55% of the portfolio. The risk score for your portfolio is 32.5, which is within your medium risk tolerance. The risk assessment specialist recommends holding the current positions, as the risk is manageable and within your tolerance. However, it is always advisable to regularly review the portfolio to ensure it remains aligned with your risk tolerance and investment goals."}
+```
+
+Check: 100 x 175.5 + 50 x 140.25 = 24,562.50; weights 71.45% / 28.55%. The risk score of 32.5
+comes from the risk-assessment agent's Code Interpreter run (0.5 x 0.30 + 0.5 x 0.35 = 0.325).
+Specialist logs show the generated Python being executed in AgentCore Code Interpreter.
+
 ## Status
 
 | Component | Status |
@@ -185,14 +207,14 @@ medium, or aggressive risk?
 | LiteLLM to Bedrock (inference profiles) | Working |
 | AgentCore Code Interpreter (risk, portfolio) | Working |
 | MCP tools via gateway | Working |
-| Advisor orchestration quality | Pending: re-test after `finops-primary` moves to Nova Pro |
+| Advisor orchestration | Working after Nova Pro and a clean agent history; durable fix (fresh agent per request) is in the repo but needs an image rebuild |
 
 ## Open items
 
-- Re-run the advisor test after ArgoCD syncs the Nova Pro change.
-- If the advisor still asks for tolerance, update its system prompt in
-  `apps/financial_services/agents/financial-advisor/agent.py` to use a tolerance stated in the
-  request (default `medium`) and never ask clarifying questions. This requires an image rebuild.
+- Rebuild and push the agent images so the per-request agent change in `agents/*/server.py` and the
+  advisor prompt update take effect. Until then, restart the agent pods to clear conversation history.
+- `agents/portfolio-analyst/server.py` is missing from the repo although its Dockerfile copies it;
+  add it before rebuilding that image.
 - No JWT authn policy is applied yet (`eks.oidcIssuer` / `jwksJson` are empty in `values.yaml`).
 - `bedrock-agentcore:*` on `Resource: "*"` is broad; scope it for production.
 - A real service-account token was pasted into an editor tab earlier; do not commit it.

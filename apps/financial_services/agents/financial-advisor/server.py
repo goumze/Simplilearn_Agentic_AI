@@ -15,7 +15,6 @@ from agent import build_agent  # noqa: E402
 os.environ.setdefault("BYPASS_TOOL_CONSENT", "True")
 
 app = FastAPI(title="financial-advisor")
-_agent = build_agent()
 
 
 class TaskRequest(BaseModel):
@@ -30,7 +29,8 @@ def healthz():
 @app.post("/")
 def handle(req: TaskRequest):
     try:
-        result = _agent(req.task)
+        # Fresh agent per request: a shared Agent accumulates history across callers.
+        result = build_agent()(req.task)
         return {"result": result.message["content"][0]["text"]}
     except Exception as exc:
         return {"error": str(exc)}

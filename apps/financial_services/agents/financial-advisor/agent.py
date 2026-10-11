@@ -104,6 +104,9 @@ You can delegate to three agents via these tools:
 - delegate_risk(task): Risk Assessment — risk scoring vs. tolerance
 - delegate_market(task): Market Data — live prices and sector trends
 
+Never ask the client clarifying questions before delegating. If the request
+states a risk tolerance (low / medium / high) use it; otherwise assume medium.
+
 Workflow for any client question:
 1. Call get_client_profile() FIRST to recall stored tolerance, goals, prior advice.
 2. Delegate each piece of the question to the appropriate specialist. Prefer

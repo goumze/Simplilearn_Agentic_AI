@@ -19,7 +19,6 @@ from agent import build_agent  # noqa: E402
 os.environ.setdefault("BYPASS_TOOL_CONSENT", "True")
 
 app = FastAPI(title="market-data")
-_agent = build_agent()
 
 
 class TaskRequest(BaseModel):
@@ -34,7 +33,8 @@ def healthz():
 @app.post("/")
 def handle(req: TaskRequest):
     try:
-        result = _agent(req.task)
+        # Fresh agent per request: a shared Agent accumulates history across callers.
+        result = build_agent()(req.task)
         text = result.message["content"][0]["text"]
         return {"result": text}
     except Exception as exc:  # surfaced to caller via Agent Gateway
