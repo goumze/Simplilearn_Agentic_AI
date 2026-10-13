@@ -1,4 +1,0 @@
-apiVersion: v2
-name: platform-root
-description: App-of-apps for the multi-agent-fsi-blog AWS Containers blog
-version: 1.0.0
