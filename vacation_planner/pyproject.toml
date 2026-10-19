@@ -1,55 +1,26 @@
 [project]
-name = "simplilearn-agentic-ai"
+name = "vacation_planner"
 version = "0.1.0"
-description = "Add your description here"
+description = "Vacation planner crew"
 readme = "README.md"
 authors = [
     { name = "goumze", email = "gm_mishra@hotmail.com" }
 ]
 requires-python = ">=3.12"
 dependencies = [
-    "arxiv==1.4.7",
-    "chromadb>=1.5.9",
-    "crewai>=1.15.28",
-    "docx2txt>=0.9",
-    "faiss-cpu>=1.15.1",
-    "ipython>=9.17.1",
-    "jq>=1.12.0",
-    "langchain>=1.4.6",
-    "langchain-classic>=1.0.8",
-    "langchain-community>=0.4.2",
-    "langchain-core>=1.6.12",
-    "langchain-groq>=1.1.3",
-    "langchain-huggingface>=1.2.3",
-    "langchain-litellm>=0.11.1",
-    "langchain-openai>=1.7.2",
-    "langchain-tavily>=0.2.18",
-    "langchain-text-splitters>=1.1.3",
-    "langgraph>=1.2.16",
-    "litellm>=1.105.1",
-    "matplotlib>=3.11.2",
-    "msoffcrypto-tool>=6.0.0",
-    "openpyxl>=3.1.5",
-    "pandas>=3.0.6",
-    "pymupdf>=1.28.2",
-    "pypdf>=6.21.0",
-    "python-docx>=1.2.0",
+    "crewai[tools,bedrock]>=1.15.28",
     "python-dotenv>=1.2.4",
-    "rank-bm25>=0.2.2",
-    "requests>=2.34.2",
-    "sentence-transformers>=6.1.0",
-    "streamlit>=1.66.0",
-    "tiktoken>=0.14.0",
-    "unstructured>=0.27.28",
-    "wikipedia>=1.4.0",
 ]
 
 [project.scripts]
-simplilearn-agentic-ai = "simplilearn_agentic_ai:main"
+run_crew = "vacation_planner.main:run"
+train = "vacation_planner.main:train"
+replay = "vacation_planner.main:replay"
+test = "vacation_planner.main:test"
 
 [build-system]
 requires = ["uv_build>=0.13.1,<0.14.0"]
 build-backend = "uv_build"
 
-[tool.uv]
-package = false
+[tool.crewai]
+type = "crew"
