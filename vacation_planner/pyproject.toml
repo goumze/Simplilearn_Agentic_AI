@@ -24,3 +24,4 @@ build-backend = "uv_build"
 
 [tool.crewai]
 type = "crew"
+project_id = "e0048574-2d2b-4427-8cc7-e5336f16dda1"

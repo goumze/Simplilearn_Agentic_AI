@@ -1,8 +1,14 @@
 from crewai import Agent, Crew, Process, Task
 from crewai.project import CrewBase, agent, crew, task
 from crewai_tools import SerperDevTool
+from dotenv import load_dotenv
+from pathlib import Path
 import os
 from crewai import LLM
+
+# Load AWS credentials and settings from the project .env before the LLM is created.
+load_dotenv(Path(__file__).resolve().parents[2] / ".env", override=True)
+
 #Initialize SerperDev Tool
 serper_dev_tool=SerperDevTool(api_key=os.getenv("SERPER_DEV_API_KEY"))
 llm=LLM(model=os.getenv("LLM_MODEL"))
