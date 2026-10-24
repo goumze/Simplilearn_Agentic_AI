@@ -12,6 +12,7 @@ on:
       - "vacation_planner/src/**"
       - "vacation_planner/Dockerfile"
       - "vacation_planner/requirements.txt"
+      - "vacation_planner/requirements-agent.txt"
       - "vacation_planner/pyproject.toml"
       - ".github/workflows/deploy.yml"
   workflow_dispatch:

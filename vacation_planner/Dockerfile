@@ -2,18 +2,14 @@ FROM ghcr.io/astral-sh/uv:python3.11-bookworm-slim
 
 WORKDIR /app
 
-#Install build tools for compiling dependencies
+#Copy only the runtime dependencies (AgentCore limits image size; keep it small)
+COPY requirements-agent.txt .
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    && rm -rf /var/lib/apt/lists/*
-
-#Copy project files to the container
-COPY requirements.txt .
-
-#Use uv pip to install dependencies
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv pip install --system --no-cache -r requirements.txt
+#Install build tools, install dependencies, then remove the build tools in the same layer
+RUN apt-get update && apt-get install -y --no-install-recommends build-essential \
+    && uv pip install --system --no-cache -r requirements-agent.txt \
+    && apt-get purge -y --auto-remove build-essential \
+    && rm -rf /var/lib/apt/lists/* /root/.cache
 
 #Copy app source code and pyproject.toml
 COPY src/ ./src/
