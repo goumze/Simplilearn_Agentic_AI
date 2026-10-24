@@ -21,6 +21,10 @@ on:
         type: choice
         options: [plan, apply, destroy]
         default: apply
+      confirm:
+        description: 'Only for destroy: type "destroy" to confirm'
+        type: string
+        required: false
 
 permissions:
   contents: read
@@ -34,12 +38,10 @@ env:
   AWS_REGION: ap-south-1
   ECR_REPOSITORY: vacation_planner
   TF_IN_AUTOMATION: "true"
-  DESTROY_WAIT_SECONDS: "120"
 
 jobs:
-  # 0. Ask whether to destroy. Manual runs answer through the "action" input.
-  #    On push, wait up to 2 minutes for a commit comment "destroy" from a
-  #    collaborator; with no answer, the deployment goes ahead.
+  # 0. Decide whether this run destroys. Only a manual run with action=destroy
+  #    AND confirm="destroy" does; push and pull request runs never destroy.
   decide:
     name: Destroy or deploy?
     runs-on: ubuntu-latest
@@ -48,30 +50,18 @@ jobs:
     steps:
       - id: ask
         env:
-          GH_TOKEN: ${{ github.token }}
           EVENT: ${{ github.event_name }}
           ACTION: ${{ github.event.inputs.action }}
-          REPO: ${{ github.repository }}
-          SHA: ${{ github.sha }}
+          CONFIRM: ${{ github.event.inputs.confirm }}
         run: |
           destroy=false
-          if [ "$EVENT" = "workflow_dispatch" ]; then
-            [ "$ACTION" = "destroy" ] && destroy=true
-          elif [ "$EVENT" = "push" ]; then
-            echo "Destroy the ECR repository and all images?"
-            echo "Reply by commenting 'destroy' on this commit within ${DESTROY_WAIT_SECONDS}s:"
-            echo "https://github.com/$REPO/commit/$SHA"
-            echo "No answer = continue with the deployment."
-            deadline=$((SECONDS + DESTROY_WAIT_SECONDS))
-            while [ $SECONDS -lt $deadline ]; do
-              match=$(gh api "repos/$REPO/commits/$SHA/comments" --paginate \
-                --jq '.[] | select((.body | gsub("\\s";"") | ascii_downcase) == "destroy" and (.author_association | IN("OWNER","MEMBER","COLLABORATOR"))) | .id')
-              if [ -n "$match" ]; then
-                destroy=true
-                break
-              fi
-              sleep 10
-            done
+          if [ "$EVENT" = "workflow_dispatch" ] && [ "$ACTION" = "destroy" ]; then
+            if [ "$CONFIRM" = "destroy" ]; then
+              destroy=true
+            else
+              echo "::error::action=destroy requires the confirm input to be exactly 'destroy'."
+              exit 1
+            fi
           fi
           echo "destroy=$destroy" >> "$GITHUB_OUTPUT"
           echo "Decision: destroy=$destroy"
