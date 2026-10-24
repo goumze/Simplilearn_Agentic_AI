@@ -1,19 +1,19 @@
 name: Deploy
 
 on:
-  pull_request:
-    paths:
-      - "vacation_planner/terraform/**"
-      - ".github/workflows/deploy.yml"
-  push:
-    branches: [feature/rahul_trisal_projects]
-    paths:
-      - "vacation_planner/terraform/**"
-      - "vacation_planner/src/**"
-      - "vacation_planner/Dockerfile"
-      - "vacation_planner/requirements.txt"
-      - "vacation_planner/pyproject.toml"
-      - ".github/workflows/deploy.yml"
+  # pull_request:
+  #   paths:
+  #     - "vacation_planner/terraform/**"
+  #     - ".github/workflows/deploy.yml"
+  # push:
+  #   branches: [feature/rahul_trisal_projects]
+  #   paths:
+  #     - "vacation_planner/terraform/**"
+  #     - "vacation_planner/src/**"
+  #     - "vacation_planner/Dockerfile"
+  #     - "vacation_planner/requirements.txt"
+  #     - "vacation_planner/pyproject.toml"
+  #     - ".github/workflows/deploy.yml"
   workflow_dispatch:
     inputs:
       action:
@@ -24,7 +24,7 @@ on:
       confirm:
         description: 'Only for destroy: type "destroy" to confirm'
         type: string
-        required: false
+        required: true
 
 permissions:
   contents: read
