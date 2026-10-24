@@ -18,5 +18,5 @@ COPY pyproject.toml .
 #Expose port
 EXPOSE 8080
 
-#Startup command - Runs the app
-CMD ["python","src/vacation_planner/crew.py"]
+#Startup command - Runs the app with OpenTelemetry auto-instrumentation so traces reach CloudWatch
+CMD ["opentelemetry-instrument","python","src/vacation_planner/crew.py"]

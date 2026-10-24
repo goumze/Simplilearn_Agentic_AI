@@ -137,6 +137,7 @@ resource "aws_bedrockagentcore_agent_runtime" "vacation_planner" {
 
   depends_on = [
     aws_iam_role_policy.agentcore_runtime,
+    aws_xray_trace_segment_destination.this,
     data.aws_ecr_image.agent,
   ]
 }
