@@ -1,0 +1,50 @@
+name: Destroy ECR repository
+
+# Manual only: never runs on push or pull request.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "destroy" to delete the ECR repository and ALL its images'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: terraform-destroy
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ap-south-1
+
+jobs:
+  destroy:
+    name: Destroy ECR repository
+    if: github.event.inputs.confirm == 'destroy'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: vacation_planner/terraform
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~> 1.10"
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - run: terraform init -input=false
+
+      # Make sure force_delete=true is in state so images do not block deletion.
+      - name: Enable force_delete on the repository
+        run: terraform apply -input=false -auto-approve -target=module.ecr.aws_ecr_repository.vacation_planner
+
+      - name: Destroy
+        run: terraform destroy -input=false -auto-approve
