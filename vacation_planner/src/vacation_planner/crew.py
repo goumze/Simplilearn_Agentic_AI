@@ -78,41 +78,38 @@ class VacationPlanner():
             # process=Process.hierarchical, # In case you wanna use that instead https://docs.crewai.com/how-to/Hierarchical/
         )
 
-    @app.entrypoint
-    def agent_invocation(payload,context):
-        """Handler for agent invocation"""    
-        print(f"Payload: {payload}")
-        try:
-            #Extract user input from payload
-            user_input = payload.get("topic","Bengaluru, India")
-            print(f"Processing vacation destination: {user_input}")
 
-            #Crew Execution - Creates an instance of the VacationPlanner crew and kicks it off with the user input
-            research_crew_instance = VacationPlanner()
-            crew = research_crew_instance.crew()
-            result = crew.kickoff(inputs={"topic": user_input})
-            print("Result Raw:\n************\n", result.raw)
+@app.entrypoint
+def agent_invocation(payload, context):
+    """Handler for agent invocation"""
+    print(f"Payload: {payload}", flush=True)
+    try:
+        user_input = payload.get("topic", "Bengaluru, India")
+        print(f"Processing vacation destination: {user_input}", flush=True)
 
-            return {"result": result.raw}
-        except Exception as e:
-            import traceback
-            traceback.print_exc()
-            print(f"Error during agent invocation: {e}")
-            return {"error": str(e)}
+        result = VacationPlanner().crew().kickoff(inputs={"topic": user_input})
+        print("Result Raw:\n************\n", result.raw, flush=True)
 
-    def test_local():
-        """Test the crew locally without AgentCore"""
-        try:
-            crew_instance = VacationPlanner()
-            crew = crew_instance.crew()
-            result = crew.kickoff(inputs={"topic": "Plan a vacation to Bengaluru, India"})
-            print("Result Raw:\n************\n", result.raw)
-            return result
-        except Exception as e:
-            print(f"Error during local test: {e}")
-            return None
+        return {"result": result.raw}
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        print(f"Error during agent invocation: {e}", flush=True)
+        return {"error": str(e)}
 
-    if __name__ == "__main__":
-        #Run AgentCore server - HTTP Server on port 8080
-        app.run()
+
+def test_local():
+    """Test the crew locally without AgentCore"""
+    try:
+        result = VacationPlanner().crew().kickoff(inputs={"topic": "Plan a vacation to Bengaluru, India"})
+        print("Result Raw:\n************\n", result.raw)
+        return result
+    except Exception as e:
+        print(f"Error during local test: {e}")
+        return None
+
+
+if __name__ == "__main__":
+    #Run AgentCore server - HTTP Server on port 8080
+    app.run()
 
