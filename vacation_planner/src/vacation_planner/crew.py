@@ -90,17 +90,15 @@ class VacationPlanner():
             #Crew Execution - Creates an instance of the VacationPlanner crew and kicks it off with the user input
             research_crew_instance = VacationPlanner()
             crew = research_crew_instance.crew()
-            result = crew.crew().kickoff(user_input=user_input)
-            print("Context:\n ------\n", result)
-            print("Result Raw:\n************\n", result)
+            result = crew.kickoff(inputs={"topic": user_input})
+            print("Result Raw:\n************\n", result.raw)
 
-            #Safely access json_dict if it exists
-            if hasattr(result,'json_dict'):
-                print("Result JSON:\n", result.json_dict)
-
-            return {"result":result.raw}
+            return {"result": result.raw}
         except Exception as e:
+            import traceback
+            traceback.print_exc()
             print(f"Error during agent invocation: {e}")
+            return {"error": str(e)}
 
     def test_local():
         """Test the crew locally without AgentCore"""
