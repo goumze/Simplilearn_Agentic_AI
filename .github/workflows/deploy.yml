@@ -200,6 +200,9 @@ jobs:
             terraform plan -input=false -out=tfplan
           fi
 
+      - name: Show plan
+        run: terraform show -no-color tfplan
+
       - name: Comment plan on PR
         if: github.event_name == 'pull_request'
         uses: actions/github-script@v7
@@ -222,45 +225,45 @@ jobs:
           path: vacation_planner/terraform/tfplan
 
   # 4. Apply the plan: creates/updates the AgentCore runtime against the freshly pushed image.
-  # apply:
-  #   name: Terraform apply
-  #   needs: plan
-  #   if: >-
-  #     needs.plan.outputs.destroy != 'true' &&
-  #     (github.event_name == 'push' ||
-  #      (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply'))
-  #   runs-on: ubuntu-latest
-  #   defaults:
-  #     run:
-  #       working-directory: vacation_planner/terraform
-  #   steps:
-  #     - uses: actions/checkout@v4
+  apply:
+    name: Terraform apply
+    needs: plan
+    if: >-
+      needs.plan.outputs.destroy != 'true' &&
+      (github.event_name == 'push' ||
+       (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply'))
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: vacation_planner/terraform
+    steps:
+      - uses: actions/checkout@v4
 
-  #     - uses: hashicorp/setup-terraform@v3
-  #       with:
-  #         terraform_version: "~> 1.10"
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~> 1.10"
 
-  #     - uses: aws-actions/configure-aws-credentials@v4
-  #       with:
-  #         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-  #         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-  #         aws-region: ${{ env.AWS_REGION }}
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
 
-  #     - uses: actions/download-artifact@v4
-  #       with:
-  #         name: tfplan
-  #         path: vacation_planner/terraform
+      - uses: actions/download-artifact@v4
+        with:
+          name: tfplan
+          path: vacation_planner/terraform
 
-  #     - run: terraform init -input=false
+      - run: terraform init -input=false
 
-  #     - name: Apply saved plan
-  #       run: terraform apply -input=false tfplan
+      - name: Apply saved plan
+        run: terraform apply -input=false tfplan
 
   # Applies the saved destroy plan (deletes the repository and all its images).
   destroy:
     name: Terraform destroy
     needs: plan
-    # if: needs.plan.outputs.destroy == 'true'
+    if: needs.plan.outputs.destroy == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
