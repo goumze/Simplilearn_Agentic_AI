@@ -35,10 +35,144 @@ env:
   ECR_REPOSITORY: vacation_planner
   TF_IN_AUTOMATION: "true"
 
+# jobs:
+#   # 1. Validate and plan the infrastructure (ECR repository).
+#   plan:
+#     name: Terraform plan
+#     runs-on: ubuntu-latest
+#     defaults:
+#       run:
+#         working-directory: vacation_planner/terraform
+#     steps:
+#       - uses: actions/checkout@v4
+
+#       - uses: hashicorp/setup-terraform@v3
+#         with:
+#           terraform_version: "~> 1.10"
+
+#       - uses: aws-actions/configure-aws-credentials@v4
+#         with:
+#           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+#           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+#           aws-region: ${{ env.AWS_REGION }}
+
+#       - run: terraform fmt -check -recursive
+
+#       - run: terraform init -input=false
+
+#       - run: terraform validate
+
+#       - name: Terraform plan
+#         id: plan
+#         run: |
+#           if [ "${{ github.event.inputs.action }}" = "destroy" ]; then
+#             terraform plan -destroy -input=false -out=tfplan
+#           else
+#             terraform plan -input=false -out=tfplan
+#           fi
+
+#       - name: Comment plan on PR
+#         if: github.event_name == 'pull_request'
+#         uses: actions/github-script@v7
+#         env:
+#           PLAN_OUTCOME: ${{ steps.plan.outcome }}
+#         with:
+#           script: |
+#             const { execSync } = require('child_process');
+#             let out = execSync('terraform show -no-color tfplan', { cwd: 'vacation_planner/terraform' }).toString();
+#             if (out.length > 60000) out = out.slice(0, 60000) + '\n... (truncated)';
+#             await github.rest.issues.createComment({
+#               ...context.repo,
+#               issue_number: context.issue.number,
+#               body: `### Terraform plan (${process.env.PLAN_OUTCOME})\n\`\`\`\n${out}\n\`\`\``,
+#             });
+
+#       - uses: actions/upload-artifact@v4
+#         with:
+#           name: tfplan
+#           path: vacation_planner/terraform/tfplan
+
+#   # 2. Apply the plan. Creates the ECR repository only if it does not exist (state is in S3).
+#   apply:
+#     name: Terraform apply
+#     needs: plan
+#     if: >-
+#       github.event_name == 'push' ||
+#       (github.event_name == 'workflow_dispatch' && github.event.inputs.action != 'plan')
+#     runs-on: ubuntu-latest
+#     defaults:
+#       run:
+#         working-directory: vacation_planner/terraform
+#     steps:
+#       - uses: actions/checkout@v4
+
+#       - uses: hashicorp/setup-terraform@v3
+#         with:
+#           terraform_version: "~> 1.10"
+
+#       - uses: aws-actions/configure-aws-credentials@v4
+#         with:
+#           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+#           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+#           aws-region: ${{ env.AWS_REGION }}
+
+#       - uses: actions/download-artifact@v4
+#         with:
+#           name: tfplan
+#           path: vacation_planner/terraform
+
+#       - run: terraform init -input=false
+
+#       - name: Apply saved plan
+#         run: terraform apply -input=false tfplan
+
+#   # 3. Build the image and push it to ECR once the repository is guaranteed to exist.
+#   build-push:
+#     name: Build & push image
+#     needs: apply
+#     if: >-
+#       github.event_name == 'push' ||
+#       (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply')
+#     runs-on: ubuntu-latest
+#     steps:
+#       - uses: actions/checkout@v4
+
+#       - uses: aws-actions/configure-aws-credentials@v4
+#         with:
+#           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+#           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+#           aws-region: ${{ env.AWS_REGION }}
+
+#       - name: Verify ECR repository exists
+#         run: |
+#           aws ecr describe-repositories --repository-names "$ECR_REPOSITORY" >/dev/null 2>&1 || {
+#             echo "::error::ECR repository '$ECR_REPOSITORY' not found."
+#             exit 1
+#           }
+
+#       - id: ecr-login
+#         uses: aws-actions/amazon-ecr-login@v2
+
+#       - uses: docker/setup-qemu-action@v3
+
+#       - uses: docker/setup-buildx-action@v3
+
+#       # AgentCore Runtime requires linux/arm64 images.
+#       - uses: docker/build-push-action@v6
+#         with:
+#           context: vacation_planner
+#           file: vacation_planner/Dockerfile
+#           platforms: linux/arm64
+#           push: true
+#           tags: |
+#             ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+#             ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
+#           cache-from: type=gha
+#           cache-to: type=gha,mode=max
 jobs:
-  # 1. Validate and plan the infrastructure (ECR repository).
-  plan:
-    name: Terraform plan
+  destroy:
+    name: Destroy ECR repository
+    if: github.event.inputs.confirm == 'destroy'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -56,116 +190,11 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - run: terraform fmt -check -recursive
-
       - run: terraform init -input=false
 
-      - run: terraform validate
+      # Make sure force_delete=true is in state so images do not block deletion.
+      - name: Enable force_delete on the repository
+        run: terraform apply -input=false -auto-approve -target=module.ecr.aws_ecr_repository.vacation_planner
 
-      - name: Terraform plan
-        id: plan
-        run: |
-          if [ "${{ github.event.inputs.action }}" = "destroy" ]; then
-            terraform plan -destroy -input=false -out=tfplan
-          else
-            terraform plan -input=false -out=tfplan
-          fi
-
-      - name: Comment plan on PR
-        if: github.event_name == 'pull_request'
-        uses: actions/github-script@v7
-        env:
-          PLAN_OUTCOME: ${{ steps.plan.outcome }}
-        with:
-          script: |
-            const { execSync } = require('child_process');
-            let out = execSync('terraform show -no-color tfplan', { cwd: 'vacation_planner/terraform' }).toString();
-            if (out.length > 60000) out = out.slice(0, 60000) + '\n... (truncated)';
-            await github.rest.issues.createComment({
-              ...context.repo,
-              issue_number: context.issue.number,
-              body: `### Terraform plan (${process.env.PLAN_OUTCOME})\n\`\`\`\n${out}\n\`\`\``,
-            });
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: tfplan
-          path: vacation_planner/terraform/tfplan
-
-  # 2. Apply the plan. Creates the ECR repository only if it does not exist (state is in S3).
-  apply:
-    name: Terraform apply
-    needs: plan
-    if: >-
-      github.event_name == 'push' ||
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.action != 'plan')
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: vacation_planner/terraform
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: "~> 1.10"
-
-      - uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - uses: actions/download-artifact@v4
-        with:
-          name: tfplan
-          path: vacation_planner/terraform
-
-      - run: terraform init -input=false
-
-      - name: Apply saved plan
-        run: terraform apply -input=false tfplan
-
-  # 3. Build the image and push it to ECR once the repository is guaranteed to exist.
-  build-push:
-    name: Build & push image
-    needs: apply
-    if: >-
-      github.event_name == 'push' ||
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply')
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Verify ECR repository exists
-        run: |
-          aws ecr describe-repositories --repository-names "$ECR_REPOSITORY" >/dev/null 2>&1 || {
-            echo "::error::ECR repository '$ECR_REPOSITORY' not found."
-            exit 1
-          }
-
-      - id: ecr-login
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - uses: docker/setup-qemu-action@v3
-
-      - uses: docker/setup-buildx-action@v3
-
-      # AgentCore Runtime requires linux/arm64 images.
-      - uses: docker/build-push-action@v6
-        with:
-          context: vacation_planner
-          file: vacation_planner/Dockerfile
-          platforms: linux/arm64
-          push: true
-          tags: |
-            ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
-            ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+      - name: Destroy
+        run: terraform destroy -input=false -auto-approve
