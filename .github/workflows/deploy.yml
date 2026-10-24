@@ -172,7 +172,6 @@ env:
 jobs:
   destroy:
     name: Destroy ECR repository
-    if: github.event.inputs.confirm == 'destroy'
     runs-on: ubuntu-latest
     defaults:
       run:
