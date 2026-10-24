@@ -3,3 +3,4 @@ crewai-tools
 bedrock-agentcore
 boto3
 python-dotenv
+aws-opentelemetry-distro
