@@ -93,16 +93,30 @@ jobs:
       - id: ecr-login
         uses: aws-actions/amazon-ecr-login@v2
 
-      # .env is gitignored, so it is recreated from a repository secret for the image build.
-      - name: Write .env from secret
+      # .env is gitignored, so it is generated from repository secrets for the image build.
+      # A full DOTENV_FILE secret, if present, overrides the generated file.
+      - name: Generate .env
         env:
           DOTENV_FILE: ${{ secrets.DOTENV_FILE }}
+          LLM_MODEL: ${{ secrets.LLM_MODEL || vars.LLM_MODEL }}
+          APP_AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+          SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}
+          AWS_BEARER_TOKEN_BEDROCK: ${{ secrets.AWS_BEARER_TOKEN_BEDROCK }}
         run: |
-          if [ -z "$DOTENV_FILE" ]; then
-            echo "::error::Repository secret DOTENV_FILE is empty or missing."
-            exit 1
+          if [ -n "$DOTENV_FILE" ]; then
+            printf '%s\n' "$DOTENV_FILE" > vacation_planner/.env
+          else
+            {
+              echo "LLM_MODEL=${LLM_MODEL:-bedrock/apac.amazon.nova-lite-v1:0}"
+              echo "AWS_DEFAULT_REGION=${APP_AWS_DEFAULT_REGION:-$AWS_REGION}"
+              [ -n "$SERPER_API_KEY" ] && echo "SERPER_API_KEY=$SERPER_API_KEY"
+              [ -n "$AWS_BEARER_TOKEN_BEDROCK" ] && echo "AWS_BEARER_TOKEN_BEDROCK=$AWS_BEARER_TOKEN_BEDROCK"
+              true
+            } > vacation_planner/.env
           fi
-          printf '%s\n' "$DOTENV_FILE" > vacation_planner/.env
+          for k in LLM_MODEL AWS_DEFAULT_REGION SERPER_API_KEY AWS_BEARER_TOKEN_BEDROCK; do
+            grep -q "^$k=" vacation_planner/.env && echo "$k: set" || echo "::warning::$k missing from generated .env"
+          done
 
       - uses: docker/setup-qemu-action@v3
 
