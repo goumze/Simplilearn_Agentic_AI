@@ -14,6 +14,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends build-essential
 #Copy app source code and pyproject.toml
 COPY src/ ./src/
 COPY pyproject.toml .
+#crew.py loads /app/.env at startup (CI writes it from a secret before the build)
+COPY .env .
 
 #Expose port
 EXPOSE 8080

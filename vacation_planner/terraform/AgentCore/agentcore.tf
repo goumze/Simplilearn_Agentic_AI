@@ -100,6 +100,16 @@ data "aws_iam_policy_document" "agentcore_runtime" {
   }
 
   statement {
+    sid     = "InvokeBedrockModels"
+    effect  = "Allow"
+    actions = ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"]
+    resources = [
+      "arn:aws:bedrock:*::foundation-model/*",
+      "arn:aws:bedrock:*:${data.aws_caller_identity.current.account_id}:inference-profile/*",
+    ]
+  }
+
+  statement {
     sid       = "WorkloadIdentity"
     effect    = "Allow"
     actions   = ["bedrock-agentcore:GetWorkloadAccessToken", "bedrock-agentcore:GetWorkloadAccessTokenForJWT", "bedrock-agentcore:GetWorkloadAccessTokenForUserId"]
