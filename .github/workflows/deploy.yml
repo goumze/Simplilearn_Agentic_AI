@@ -1,0 +1,75 @@
+name: Build & push image to ECR
+
+on:
+  push:
+    branches: [feature/rahul_trisal_projects]
+    paths:
+      - "vacation_planner/src/**"
+      - "vacation_planner/Dockerfile"
+      - "vacation_planner/requirements.txt"
+      - "vacation_planner/pyproject.toml"
+      - ".github/workflows/deploy.yml"
+  # Runs after infrastructure is applied so the ECR repository is guaranteed to exist.
+  workflow_run:
+    workflows: ["Terraform Infrastructure"]
+    types: [completed]
+    branches: [feature/rahul_trisal_projects]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ap-south-1
+  ECR_REPOSITORY: vacation_planner
+
+jobs:
+  build-push:
+    name: Build & push image
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event != 'pull_request')
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # The repository is created by the "Terraform Infrastructure" workflow.
+      - name: Verify ECR repository exists
+        run: |
+          aws ecr describe-repositories --repository-names "$ECR_REPOSITORY" >/dev/null 2>&1 || {
+            echo "::error::ECR repository '$ECR_REPOSITORY' not found. Run the 'Terraform Infrastructure' workflow with action=apply first."
+            exit 1
+          }
+
+      - id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - uses: docker/setup-qemu-action@v3
+
+      - uses: docker/setup-buildx-action@v3
+
+      # AgentCore Runtime requires linux/arm64 images.
+      - uses: docker/build-push-action@v6
+        with:
+          context: vacation_planner
+          file: vacation_planner/Dockerfile
+          platforms: linux/arm64
+          push: true
+          tags: |
+            ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.event.workflow_run.head_sha || github.sha }}
+            ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

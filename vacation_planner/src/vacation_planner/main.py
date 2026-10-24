@@ -18,7 +18,7 @@ def run():
     Run the crew.
     """
     inputs = {
-        'topic': 'London',
+        'topic': 'Bhubaneswar',
         'current_year': str(datetime.now().year)
     }
     

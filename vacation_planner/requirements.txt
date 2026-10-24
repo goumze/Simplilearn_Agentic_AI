@@ -33,3 +33,6 @@ streamlit
 wikipedia
 langchain-litellm
 crewai
+streamlit
+bedrock-agentcore
+boto3

@@ -2,3 +2,9 @@
 __pycache__/
 .DS_Store
 .crewai/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+tfplan

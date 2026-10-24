@@ -5,13 +5,16 @@ from dotenv import load_dotenv
 from pathlib import Path
 import os
 from crewai import LLM
+from bedrock_agentcore.runtime import BedrockAgentCoreApp
+
+app = BedrockAgentCoreApp()
 
 # Load AWS credentials and settings from the project .env before the LLM is created.
 load_dotenv(Path(__file__).resolve().parents[2] / ".env", override=True)
 
 #Initialize SerperDev Tool
-serper_dev_tool=SerperDevTool(api_key=os.getenv("SERPER_DEV_API_KEY"))
-llm=LLM(model=os.getenv("LLM_MODEL"))
+serper_dev_tool=SerperDevTool(api_key=os.getenv("SERPER_API_KEY"))
+llm=LLM(model=os.getenv("LLM_MODEL"),region=os.getenv("AWS_DEFAULT_REGION"),api_key=os.getenv("AWS_BEARER_TOKEN_BEDROCK"))
 # If you want to run a snippet of code before or after the crew starts,
 # you can use the @before_kickoff and @after_kickoff decorators
 # https://docs.crewai.com/concepts/crews#example-crew-class-with-decorators
@@ -74,3 +77,44 @@ class VacationPlanner():
             verbose=True,
             # process=Process.hierarchical, # In case you wanna use that instead https://docs.crewai.com/how-to/Hierarchical/
         )
+
+    @app.entrypoint
+    def agent_invocation(payload,context):
+        """Handler for agent invocation"""    
+        print(f"Payload: {payload}")
+        try:
+            #Extract user input from payload
+            user_input = payload.get("topic","Bengaluru, India")
+            print(f"Processing vacation destination: {user_input}")
+
+            #Crew Execution - Creates an instance of the VacationPlanner crew and kicks it off with the user input
+            research_crew_instance = VacationPlanner()
+            crew = research_crew_instance.crew()
+            result = crew.crew().kickoff(user_input=user_input)
+            print("Context:\n ------\n", result)
+            print("Result Raw:\n************\n", result)
+
+            #Safely access json_dict if it exists
+            if hasattr(result,'json_dict'):
+                print("Result JSON:\n", result.json_dict)
+
+            return {"result":result.raw}
+        except Exception as e:
+            print(f"Error during agent invocation: {e}")
+
+    def test_local():
+        """Test the crew locally without AgentCore"""
+        try:
+            crew_instance = VacationPlanner()
+            crew = crew_instance.crew()
+            result = crew.kickoff(inputs={"topic": "Plan a vacation to Bengaluru, India"})
+            print("Result Raw:\n************\n", result.raw)
+            return result
+        except Exception as e:
+            print(f"Error during local test: {e}")
+            return None
+
+    if __name__ == "__main__":
+        #Run AgentCore server - HTTP Server on port 8080
+        app.run()
+

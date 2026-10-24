@@ -1,0 +1,10 @@
+.venv
+.env
+.git
+.github
+terraform
+tests
+knowledge
+__pycache__
+*.pyc
+report.md
