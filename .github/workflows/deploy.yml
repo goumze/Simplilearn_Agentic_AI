@@ -40,15 +40,19 @@ env:
   TF_IN_AUTOMATION: "true"
 
 jobs:
-  # 0. Decide whether this run destroys. Only a manual run with action=destroy
-  #    AND confirm="destroy" does; push and pull request runs never destroy.
-  decide:
-    name: Destroy or deploy?
+  # 1. Plan. Always runs first: a normal plan, or a destroy plan when a manual run
+  #    has action=destroy AND confirm="destroy". Push and pull request runs never destroy.
+  plan:
+    name: Terraform plan
     runs-on: ubuntu-latest
     outputs:
-      destroy: ${{ steps.ask.outputs.destroy }}
+      destroy: ${{ steps.mode.outputs.destroy }}
+    defaults:
+      run:
+        working-directory: vacation_planner/terraform
     steps:
-      - id: ask
+      - id: mode
+        working-directory: .
         env:
           EVENT: ${{ github.event_name }}
           ACTION: ${{ github.event.inputs.action }}
@@ -64,18 +68,7 @@ jobs:
             fi
           fi
           echo "destroy=$destroy" >> "$GITHUB_OUTPUT"
-          echo "Decision: destroy=$destroy"
 
-  # 1. Validate and plan the infrastructure (ECR repository).
-  plan:
-    name: Terraform plan
-    needs: decide
-    if: needs.decide.outputs.destroy != 'true'
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: vacation_planner/terraform
-    steps:
       - uses: actions/checkout@v4
 
       - uses: hashicorp/setup-terraform@v3
@@ -94,9 +87,20 @@ jobs:
 
       - run: terraform validate
 
+      # Make sure force_delete=true is in state so images do not block deletion.
+      # Done before planning so the saved destroy plan is not made stale.
+      - name: Enable force_delete on the repository
+        if: steps.mode.outputs.destroy == 'true'
+        run: terraform apply -input=false -auto-approve -target=module.ecr.aws_ecr_repository.vacation_planner
+
       - name: Terraform plan
         id: plan
-        run: terraform plan -input=false -out=tfplan
+        run: |
+          if [ "${{ steps.mode.outputs.destroy }}" = "true" ]; then
+            terraform plan -destroy -input=false -out=tfplan
+          else
+            terraform plan -input=false -out=tfplan
+          fi
 
       - name: Comment plan on PR
         if: github.event_name == 'pull_request'
@@ -122,9 +126,9 @@ jobs:
   # 2. Apply the plan. Creates the ECR repository only if it does not exist (state is in S3).
   apply:
     name: Terraform apply
-    needs: [decide, plan]
+    needs: plan
     if: >-
-      needs.decide.outputs.destroy != 'true' &&
+      needs.plan.outputs.destroy != 'true' &&
       (github.event_name == 'push' ||
        (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply'))
     runs-on: ubuntu-latest
@@ -195,11 +199,11 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  # Destroys the ECR repository and all its images when requested.
+  # Applies the saved destroy plan (deletes the repository and all its images).
   destroy:
-    name: Destroy ECR repository
-    needs: decide
-    if: needs.decide.outputs.destroy == 'true'
+    name: Terraform destroy
+    needs: plan
+    if: needs.plan.outputs.destroy == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -217,11 +221,12 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - uses: actions/download-artifact@v4
+        with:
+          name: tfplan
+          path: vacation_planner/terraform
+
       - run: terraform init -input=false
 
-      # Make sure force_delete=true is in state so images do not block deletion.
-      - name: Enable force_delete on the repository
-        run: terraform apply -input=false -auto-approve -target=module.ecr.aws_ecr_repository.vacation_planner
-
-      - name: Destroy
-        run: terraform destroy -input=false -auto-approve
+      - name: Apply saved destroy plan
+        run: terraform apply -input=false tfplan
