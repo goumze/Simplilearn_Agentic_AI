@@ -68,10 +68,16 @@ data "aws_iam_policy_document" "agentcore_runtime" {
   }
 
   statement {
+    sid       = "CloudWatchLogsDescribeGroups"
+    effect    = "Allow"
+    actions   = ["logs:DescribeLogGroups"]
+    resources = ["arn:aws:logs:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:log-group:*"]
+  }
+
+  statement {
     sid    = "CloudWatchLogsWrite"
     effect = "Allow"
     actions = [
-      "logs:DescribeLogGroups",
       "logs:CreateLogStream",
       "logs:PutLogEvents",
     ]
