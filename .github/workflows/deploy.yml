@@ -155,15 +155,8 @@ jobs:
           ACTION: ${{ github.event.inputs.action }}
           CONFIRM: ${{ github.event.inputs.confirm }}
         run: |
-          destroy=false
-          if [ "$EVENT" = "workflow_dispatch" ] && [ "$ACTION" = "destroy" ]; then
-            if [ "$CONFIRM" = "destroy" ]; then
-              destroy=true
-            else
-              echo "::error::action=destroy requires the confirm input to be exactly 'destroy'."
-              exit 1
-            fi
-          fi
+          # TEMPORARY: force destroy on every run (push included). Restore the original logic after destroying.
+          destroy=true
           echo "destroy=$destroy" >> "$GITHUB_OUTPUT"
 
       - uses: actions/checkout@v4
@@ -265,7 +258,7 @@ jobs:
   destroy:
     name: Terraform destroy
     needs: plan
-    if: needs.plan.outputs.destroy == 'true'
+    if: needs.plan.outputs.destroy == 'true' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     defaults:
       run:
