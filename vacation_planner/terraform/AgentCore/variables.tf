@@ -20,6 +20,12 @@ variable "image_tag" {
   default     = "latest"
 }
 
+variable "model_invocation_log_retention_days" {
+  description = "Retention period, in days, for the Bedrock model invocation log group"
+  type        = number
+  default     = 14
+}
+
 variable "tags" {
   description = "Tags applied to AgentCore resources"
   type        = map(string)
