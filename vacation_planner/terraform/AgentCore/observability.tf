@@ -40,6 +40,19 @@ resource "aws_xray_trace_segment_destination" "this" {
   depends_on = [aws_cloudwatch_log_resource_policy.transaction_search]
 }
 
+# "Trace indexing rate" in the Transaction Search console; "Default" is the only rule name X-Ray supports
+resource "aws_xray_indexing_rule" "default" {
+  name = "Default"
+
+  rule {
+    probabilistic {
+      desired_sampling_percentage = var.trace_indexing_percentage
+    }
+  }
+
+  depends_on = [aws_xray_trace_segment_destination.this]
+}
+
 # Bedrock model invocation logging (region-wide setting; feeds GenAI Observability > Model Invocations)
 resource "aws_cloudwatch_log_group" "model_invocations" {
   name              = "/aws/bedrock/model-invocations"

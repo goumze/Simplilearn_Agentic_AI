@@ -20,6 +20,12 @@ variable "image_tag" {
   default     = "latest"
 }
 
+variable "trace_indexing_percentage" {
+  description = "Percentage of spans X-Ray indexes as trace summaries in Transaction Search (AWS default is 1)"
+  type        = number
+  default     = 1
+}
+
 variable "model_invocation_log_retention_days" {
   description = "Retention period, in days, for the Bedrock model invocation log group"
   type        = number
