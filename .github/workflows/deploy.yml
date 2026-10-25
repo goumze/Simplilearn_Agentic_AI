@@ -43,97 +43,97 @@ env:
 jobs:
   # Deployment order: ECR repository -> image build & push -> full plan -> apply (AgentCore).
   # 1. Create the ECR repository only, so the image has somewhere to go.
-#  ecr:
-#    name: Terraform apply (ECR only)
-#    if: >-
-#      github.event_name == 'push' ||
-#      (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply')
-#    runs-on: ubuntu-latest
-#    defaults:
-#      run:
-#        working-directory: vacation_planner/terraform
-#    steps:
-#      - uses: actions/checkout@v4
+ ecr:
+   name: Terraform apply (ECR only)
+   if: >-
+     github.event_name == 'push' ||
+     (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply')
+   runs-on: ubuntu-latest
+   defaults:
+     run:
+       working-directory: vacation_planner/terraform
+   steps:
+     - uses: actions/checkout@v4
 
-#      - uses: hashicorp/setup-terraform@v3
-#        with:
-#          terraform_version: "~> 1.10"
+     - uses: hashicorp/setup-terraform@v3
+       with:
+         terraform_version: "~> 1.10"
 
-#      - uses: aws-actions/configure-aws-credentials@v4
-#        with:
-#          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-#          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-#          aws-region: ${{ env.AWS_REGION }}
+     - uses: aws-actions/configure-aws-credentials@v4
+       with:
+         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+         aws-region: ${{ env.AWS_REGION }}
 
-#      - run: terraform init -input=false
+     - run: terraform init -input=false
 
-#      - run: terraform apply -input=false -auto-approve -target=module.ecr
+     - run: terraform apply -input=false -auto-approve -target=module.ecr
 
   # 2. Build the image and push it to ECR once the repository is guaranteed to exist.
-#  build-push:
-#    name: Build & push image
-#    needs: ecr
-#    runs-on: ubuntu-latest
-#    steps:
-#      - uses: actions/checkout@v4
+ build-push:
+   name: Build & push image
+   needs: ecr
+   runs-on: ubuntu-latest
+   steps:
+     - uses: actions/checkout@v4
 
-#      - uses: aws-actions/configure-aws-credentials@v4
-#        with:
-#          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-#          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-#          aws-region: ${{ env.AWS_REGION }}
+     - uses: aws-actions/configure-aws-credentials@v4
+       with:
+         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+         aws-region: ${{ env.AWS_REGION }}
 
-#      - name: Verify ECR repository exists
-#        run: |
-#          aws ecr describe-repositories --repository-names "$ECR_REPOSITORY" >/dev/null 2>&1 || {
-#            echo "::error::ECR repository '$ECR_REPOSITORY' not found."
-#            exit 1
-#          }
+     - name: Verify ECR repository exists
+       run: |
+         aws ecr describe-repositories --repository-names "$ECR_REPOSITORY" >/dev/null 2>&1 || {
+           echo "::error::ECR repository '$ECR_REPOSITORY' not found."
+           exit 1
+         }
 
-#      - id: ecr-login
-#        uses: aws-actions/amazon-ecr-login@v2
+     - id: ecr-login
+       uses: aws-actions/amazon-ecr-login@v2
 
-#      # .env is gitignored, so it is generated from repository secrets for the image build.
-#      # A full DOTENV_FILE secret, if present, overrides the generated file.
-#      - name: Generate .env
-#        env:
-#          DOTENV_FILE: ${{ secrets.DOTENV_FILE }}
-#          LLM_MODEL: ${{ secrets.LLM_MODEL || vars.LLM_MODEL }}
-#          APP_AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
-#          SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}
-#          AWS_BEARER_TOKEN_BEDROCK: ${{ secrets.AWS_BEARER_TOKEN_BEDROCK }}
-#        run: |
-#          if [ -n "$DOTENV_FILE" ]; then
-#            printf '%s\n' "$DOTENV_FILE" > vacation_planner/.env
-#          else
-#            {
-#              echo "LLM_MODEL=${LLM_MODEL:-bedrock/apac.amazon.nova-lite-v1:0}"
-#              echo "AWS_DEFAULT_REGION=${APP_AWS_DEFAULT_REGION:-$AWS_REGION}"
-#              [ -n "$SERPER_API_KEY" ] && echo "SERPER_API_KEY=$SERPER_API_KEY"
-#              [ -n "$AWS_BEARER_TOKEN_BEDROCK" ] && echo "AWS_BEARER_TOKEN_BEDROCK=$AWS_BEARER_TOKEN_BEDROCK"
-#              true
-#            } > vacation_planner/.env
-#          fi
-#          for k in LLM_MODEL AWS_DEFAULT_REGION SERPER_API_KEY AWS_BEARER_TOKEN_BEDROCK; do
-#            grep -q "^$k=" vacation_planner/.env && echo "$k: set" || echo "::warning::$k missing from generated .env"
-#          done
+     # .env is gitignored, so it is generated from repository secrets for the image build.
+     # A full DOTENV_FILE secret, if present, overrides the generated file.
+     - name: Generate .env
+       env:
+         DOTENV_FILE: ${{ secrets.DOTENV_FILE }}
+         LLM_MODEL: ${{ secrets.LLM_MODEL || vars.LLM_MODEL }}
+         APP_AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+         SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}
+         AWS_BEARER_TOKEN_BEDROCK: ${{ secrets.AWS_BEARER_TOKEN_BEDROCK }}
+       run: |
+         if [ -n "$DOTENV_FILE" ]; then
+           printf '%s\n' "$DOTENV_FILE" > vacation_planner/.env
+         else
+           {
+             echo "LLM_MODEL=${LLM_MODEL:-bedrock/apac.amazon.nova-lite-v1:0}"
+             echo "AWS_DEFAULT_REGION=${APP_AWS_DEFAULT_REGION:-$AWS_REGION}"
+             [ -n "$SERPER_API_KEY" ] && echo "SERPER_API_KEY=$SERPER_API_KEY"
+             [ -n "$AWS_BEARER_TOKEN_BEDROCK" ] && echo "AWS_BEARER_TOKEN_BEDROCK=$AWS_BEARER_TOKEN_BEDROCK"
+             true
+           } > vacation_planner/.env
+         fi
+         for k in LLM_MODEL AWS_DEFAULT_REGION SERPER_API_KEY AWS_BEARER_TOKEN_BEDROCK; do
+           grep -q "^$k=" vacation_planner/.env && echo "$k: set" || echo "::warning::$k missing from generated .env"
+         done
 
-#      - uses: docker/setup-qemu-action@v3
+     - uses: docker/setup-qemu-action@v3
 
-#      - uses: docker/setup-buildx-action@v3
+     - uses: docker/setup-buildx-action@v3
 
-#      # AgentCore Runtime requires linux/arm64 images.
-#      - uses: docker/build-push-action@v6
-#        with:
-#          context: vacation_planner
-#          file: vacation_planner/Dockerfile
-#          platforms: linux/arm64
-#          push: true
-#          tags: |
-#            ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
-#            ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
-#          cache-from: type=gha
-#          cache-to: type=gha,mode=max
+     # AgentCore Runtime requires linux/arm64 images.
+     - uses: docker/build-push-action@v6
+       with:
+         context: vacation_planner
+         file: vacation_planner/Dockerfile
+         platforms: linux/arm64
+         push: true
+         tags: |
+           ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+           ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
+         cache-from: type=gha
+         cache-to: type=gha,mode=max
 
   # 3. Plan the full configuration. For push/apply runs it waits for the image push; for pull
   #    requests, plan-only and destroy runs the ecr/build-push jobs are skipped, which is allowed.
@@ -227,68 +227,68 @@ jobs:
           path: vacation_planner/terraform/tfplan
 
   # 4. Apply the plan: creates/updates the AgentCore runtime against the freshly pushed image.
-#  apply:
-#    name: Terraform apply
-#    needs: plan
-#    if: >-
-#      needs.plan.outputs.destroy != 'true' &&
-#      (github.event_name == 'push' ||
-#       (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply'))
-#    runs-on: ubuntu-latest
-#    defaults:
-#      run:
-#        working-directory: vacation_planner/terraform
-#    steps:
-#      - uses: actions/checkout@v4
+ apply:
+   name: Terraform apply
+   needs: plan
+   if: >-
+     needs.plan.outputs.destroy != 'true' &&
+     (github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply'))
+   runs-on: ubuntu-latest
+   defaults:
+     run:
+       working-directory: vacation_planner/terraform
+   steps:
+     - uses: actions/checkout@v4
 
-#      - uses: hashicorp/setup-terraform@v3
-#        with:
-#          terraform_version: "~> 1.10"
+     - uses: hashicorp/setup-terraform@v3
+       with:
+         terraform_version: "~> 1.10"
 
-#      - uses: aws-actions/configure-aws-credentials@v4
-#        with:
-#          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-#          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-#          aws-region: ${{ env.AWS_REGION }}
+     - uses: aws-actions/configure-aws-credentials@v4
+       with:
+         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+         aws-region: ${{ env.AWS_REGION }}
 
-#      - uses: actions/download-artifact@v4
-#        with:
-#          name: tfplan
-#          path: vacation_planner/terraform
+     - uses: actions/download-artifact@v4
+       with:
+         name: tfplan
+         path: vacation_planner/terraform
 
-#      - run: terraform init -input=false
+     - run: terraform init -input=false
 
-#      - name: Apply saved plan
-#        run: terraform apply -input=false tfplan
+     - name: Apply saved plan
+       run: terraform apply -input=false tfplan
 
   # Applies the saved destroy plan (deletes the repository and all its images).
-  destroy:
-    name: Terraform destroy
-    needs: plan
-    if: needs.plan.outputs.destroy == 'true'
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: vacation_planner/terraform
-    steps:
-      - uses: actions/checkout@v4
+  # destroy:
+  #   name: Terraform destroy
+  #   needs: plan
+  #   if: needs.plan.outputs.destroy == 'true'
+  #   runs-on: ubuntu-latest
+  #   defaults:
+  #     run:
+  #       working-directory: vacation_planner/terraform
+  #   steps:
+  #     - uses: actions/checkout@v4
 
-      - uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: "~> 1.10"
+  #     - uses: hashicorp/setup-terraform@v3
+  #       with:
+  #         terraform_version: "~> 1.10"
 
-      - uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
+  #     - uses: aws-actions/configure-aws-credentials@v4
+  #       with:
+  #         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  #         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  #         aws-region: ${{ env.AWS_REGION }}
 
-      - uses: actions/download-artifact@v4
-        with:
-          name: tfplan
-          path: vacation_planner/terraform
+  #     - uses: actions/download-artifact@v4
+  #       with:
+  #         name: tfplan
+  #         path: vacation_planner/terraform
 
-      - run: terraform init -input=false
+  #     - run: terraform init -input=false
 
-      - name: Apply saved destroy plan
-        run: terraform apply -input=false tfplan
+  #     - name: Apply saved destroy plan
+  #       run: terraform apply -input=false tfplan
