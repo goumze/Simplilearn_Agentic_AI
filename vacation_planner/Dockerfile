@@ -11,6 +11,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends build-essential
     && apt-get purge -y --auto-remove build-essential \
     && rm -rf /var/lib/apt/lists/* /root/.cache
 
+RUN pip install --no-cache-dir "aws-opentelemetry-distro>=0.10.1" boto3
+
 #Copy app source code and pyproject.toml
 COPY src/ ./src/
 COPY pyproject.toml .
