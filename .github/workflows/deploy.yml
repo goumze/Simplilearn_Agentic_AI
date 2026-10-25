@@ -219,10 +219,13 @@ jobs:
               body: `### Terraform plan (${process.env.PLAN_OUTCOME})\n\`\`\`\n${out}\n\`\`\``,
             });
 
+      # The plan references the Lambda zip built by archive_file, so it must travel with tfplan.
       - uses: actions/upload-artifact@v4
         with:
           name: tfplan
-          path: vacation_planner/terraform/tfplan
+          path: |
+            vacation_planner/terraform/tfplan
+            vacation_planner/terraform/Lambda/build/lambda.zip
 
   # 4. Apply the plan: creates/updates the AgentCore runtime against the freshly pushed image.
   apply:
