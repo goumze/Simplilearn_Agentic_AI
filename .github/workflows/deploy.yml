@@ -140,8 +140,8 @@ jobs:
   #    A destroy plan is produced when a manual run has action=destroy AND confirm="destroy".
   plan:
     name: Terraform plan
-    # needs: build-push
-    # if: ${{ !cancelled() && (needs.build-push.result == 'success' || needs.build-push.result == 'skipped') }}
+    needs: [ecr, build-push]
+    if: ${{ !cancelled() && needs.ecr.result != 'failure' && needs.build-push.result != 'failure' }}
     runs-on: ubuntu-latest
     outputs:
       destroy: ${{ steps.mode.outputs.destroy }}
@@ -156,17 +156,15 @@ jobs:
           ACTION: ${{ github.event.inputs.action }}
           CONFIRM: ${{ github.event.inputs.confirm }}
         run: |
-          # TEMPORARY: always destroy on push. Revert (restore the block below) after destroying.
-          destroy=true
-          # destroy=false
-          # if [ "$EVENT" = "workflow_dispatch" ] && [ "$ACTION" = "destroy" ]; then
-          #   if [ "$CONFIRM" = "destroy" ]; then
-          #     destroy=true
-          #   else
-          #     echo "::error::action=destroy requires the confirm input to be exactly 'destroy'."
-          #     exit 1
-          #   fi
-          # fi
+          destroy=false
+          if [ "$EVENT" = "workflow_dispatch" ] && [ "$ACTION" = "destroy" ]; then
+            if [ "$CONFIRM" = "destroy" ]; then
+              destroy=true
+            else
+              echo "::error::action=destroy requires the confirm input to be exactly 'destroy'."
+              exit 1
+            fi
+          fi
           echo "destroy=$destroy" >> "$GITHUB_OUTPUT"
 
       - uses: actions/checkout@v4
@@ -228,38 +226,38 @@ jobs:
 
   # 4. Apply the plan: creates/updates the AgentCore runtime against the freshly pushed image.
   apply:
-   name: Terraform apply
-   needs: plan
-   if: >-
-     needs.plan.outputs.destroy != 'true' &&
-     (github.event_name == 'push' ||
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply'))
-   runs-on: ubuntu-latest
-   defaults:
-     run:
-       working-directory: vacation_planner/terraform
-   steps:
-     - uses: actions/checkout@v4
+    name: Terraform apply
+    needs: plan
+    # Runs for push, manual apply, and manual destroy. A destroy run applies the saved destroy plan.
+    if: >-
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' && (github.event.inputs.action == 'apply' || github.event.inputs.action == 'destroy'))
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: vacation_planner/terraform
+    steps:
+      - uses: actions/checkout@v4
 
-     - uses: hashicorp/setup-terraform@v3
-       with:
-         terraform_version: "~> 1.10"
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~> 1.10"
 
-     - uses: aws-actions/configure-aws-credentials@v4
-       with:
-         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-         aws-region: ${{ env.AWS_REGION }}
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
 
-     - uses: actions/download-artifact@v4
-       with:
-         name: tfplan
-         path: vacation_planner/terraform
+      - uses: actions/download-artifact@v4
+        with:
+          name: tfplan
+          path: vacation_planner/terraform
 
-     - run: terraform init -input=false
+      - run: terraform init -input=false
 
-     - name: Apply saved plan
-       run: terraform apply -input=false tfplan
+      - name: Apply saved plan
+        run: terraform apply -input=false tfplan
 
   # Applies the saved destroy plan (deletes the repository and all its images).
   # destroy:
