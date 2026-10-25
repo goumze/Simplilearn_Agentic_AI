@@ -43,7 +43,7 @@ env:
 jobs:
   # Deployment order: ECR repository -> image build & push -> full plan -> apply (AgentCore).
   # 1. Create the ECR repository only, so the image has somewhere to go.
- ecr:
+  ecr:
    name: Terraform apply (ECR only)
    if: >-
      github.event_name == 'push' ||
@@ -70,7 +70,7 @@ jobs:
      - run: terraform apply -input=false -auto-approve -target=module.ecr
 
   # 2. Build the image and push it to ECR once the repository is guaranteed to exist.
- build-push:
+  build-push:
    name: Build & push image
    needs: ecr
    runs-on: ubuntu-latest
@@ -98,7 +98,7 @@ jobs:
      - name: Generate .env
        env:
          DOTENV_FILE: ${{ secrets.DOTENV_FILE }}
-         LLM_MODEL: ${{ secrets.LLM_MODEL || vars.LLM_MODEL }}
+         LLM_MODEL: ${{ secrets.LLM_MODEL }}
          APP_AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
          SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}
          AWS_BEARER_TOKEN_BEDROCK: ${{ secrets.AWS_BEARER_TOKEN_BEDROCK }}
@@ -227,7 +227,7 @@ jobs:
           path: vacation_planner/terraform/tfplan
 
   # 4. Apply the plan: creates/updates the AgentCore runtime against the freshly pushed image.
- apply:
+  apply:
    name: Terraform apply
    needs: plan
    if: >-
