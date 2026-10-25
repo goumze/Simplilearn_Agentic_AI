@@ -9,8 +9,10 @@ def lambda_handler(event, context):
 
     print(f"Received event: {event}")
     client = boto3.client('bedrock-agentcore',region_name=os.environ['AGENT_REGION'])
-    user_input = event.get('prompt','Mumbai')
-    payload = json.dumps({"topic":user_input})
+    
+    request_body = json.loads(event.get('body') or '{}')
+    user_input = request_body.get('topic', 'Mumbai')
+    payload = json.dumps({'topic': user_input})
 
     #Generate sesson id
     session_id = f"lambda_session_{str(uuid.uuid4()).replace('-', '')}"
