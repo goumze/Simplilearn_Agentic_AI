@@ -37,3 +37,17 @@ output "lambda_execution_role_arn" {
 output "lambda_function_arn" {
   value = module.lambda.lambda_function_arn
 }
+
+module "api_gateway" {
+  source = "./API_Gateway"
+
+  lambda_function_name = module.lambda.lambda_function_name
+  lambda_invoke_arn    = module.lambda.lambda_invoke_arn
+  tags                 = var.tags
+
+  depends_on = [module.lambda]
+}
+
+output "api_gateway_invoke_url" {
+  value = module.api_gateway.api_gateway_invoke_url
+}
