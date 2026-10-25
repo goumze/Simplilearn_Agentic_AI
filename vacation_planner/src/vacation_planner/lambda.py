@@ -7,6 +7,7 @@ import uuid
 def lambda_handler(event, context):
     #Create a client connection with Bedrock AgentCore
 
+    print(f"Received event: {event}")
     client = boto3.client('bedrock-agentcore',region_name=os.environ['AGENT_REGION'])
     user_input = event.get('prompt','Mumbai')
     payload = json.dumps({"topic":user_input})
