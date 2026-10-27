@@ -149,6 +149,11 @@ resource "aws_bedrockagentcore_agent_runtime" "vacation_planner" {
     network_mode = "PUBLIC"
   }
 
+  # Without an endpoint the OTLP metrics exporter defaults to localhost:4318 (no collector), so metrics were dropped.
+  environment_variables = {
+    OTEL_EXPORTER_OTLP_METRICS_ENDPOINT = "https://monitoring.${data.aws_region.current.region}.amazonaws.com/v1/metrics"
+  }
+
   tags = var.tags
 
   depends_on = [
