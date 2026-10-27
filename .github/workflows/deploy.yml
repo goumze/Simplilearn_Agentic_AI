@@ -261,7 +261,7 @@ jobs:
   destroy:
     name: Terraform destroy
     #needs: plan
-    if: needs.plan.outputs.destroy == 'true' && github.event_name != 'pull_request'
+    #if: needs.plan.outputs.destroy == 'true' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     defaults:
       run:
