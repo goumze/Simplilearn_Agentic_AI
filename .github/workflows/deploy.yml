@@ -137,91 +137,91 @@ jobs:
 
   # 3. Plan the full configuration. Runs for pull requests and manual plan/destroy runs.
   #    A destroy plan is produced when a manual run has action=destroy AND confirm="destroy".
-  plan:
-    name: Terraform plan
-    if: >-
-      github.event_name == 'pull_request' ||
-      (github.event_name == 'workflow_dispatch' &&
-      (github.event.inputs.action == 'plan' || github.event.inputs.action == 'destroy'))
-    runs-on: ubuntu-latest
-    outputs:
-      destroy: ${{ steps.mode.outputs.destroy }}
-    defaults:
-      run:
-        working-directory: vacation_planner/terraform
-    steps:
-      - id: mode
-        working-directory: .
-        env:
-          EVENT: ${{ github.event_name }}
-          ACTION: ${{ github.event.inputs.action }}
-          CONFIRM: ${{ github.event.inputs.confirm }}
-        run: |
-          destroy=false
-          if [ "$EVENT" = "workflow_dispatch" ] && [ "$ACTION" = "destroy" ] && [ "$CONFIRM" = "destroy" ]; then
-            destroy=true
-          fi
-          echo "destroy=$destroy" >> "$GITHUB_OUTPUT"
+  # plan:
+  #   name: Terraform plan
+  #   if: >-
+  #     github.event_name == 'pull_request' ||
+  #     (github.event_name == 'workflow_dispatch' &&
+  #     (github.event.inputs.action == 'plan' || github.event.inputs.action == 'destroy'))
+  #   runs-on: ubuntu-latest
+  #   outputs:
+  #     destroy: ${{ steps.mode.outputs.destroy }}
+  #   defaults:
+  #     run:
+  #       working-directory: vacation_planner/terraform
+  #   steps:
+  #     - id: mode
+  #       working-directory: .
+  #       env:
+  #         EVENT: ${{ github.event_name }}
+  #         ACTION: ${{ github.event.inputs.action }}
+  #         CONFIRM: ${{ github.event.inputs.confirm }}
+  #       run: |
+  #         destroy=false
+  #         if [ "$EVENT" = "workflow_dispatch" ] && [ "$ACTION" = "destroy" ] && [ "$CONFIRM" = "destroy" ]; then
+  #           destroy=true
+  #         fi
+  #         echo "destroy=$destroy" >> "$GITHUB_OUTPUT"
 
-      - uses: actions/checkout@v4
+  #     - uses: actions/checkout@v4
 
-      - uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: "~> 1.10"
+  #     - uses: hashicorp/setup-terraform@v3
+  #       with:
+  #         terraform_version: "~> 1.10"
 
-      - uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
+  #     - uses: aws-actions/configure-aws-credentials@v4
+  #       with:
+  #         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  #         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  #         aws-region: ${{ env.AWS_REGION }}
 
-      - run: terraform fmt -check -recursive
+  #     - run: terraform fmt -check -recursive
 
-      - run: terraform init -input=false
+  #     - run: terraform init -input=false
 
-      - run: terraform validate
+  #     - run: terraform validate
 
-      # Make sure force_delete=true is in state so images do not block deletion.
-      # Done before planning so the saved destroy plan is not made stale.
-      - name: Enable force_delete on the repository
-        if: steps.mode.outputs.destroy == 'true'
-        run: terraform apply -input=false -auto-approve -target=module.ecr.aws_ecr_repository.vacation_planner
+  #     # Make sure force_delete=true is in state so images do not block deletion.
+  #     # Done before planning so the saved destroy plan is not made stale.
+  #     - name: Enable force_delete on the repository
+  #       if: steps.mode.outputs.destroy == 'true'
+  #       run: terraform apply -input=false -auto-approve -target=module.ecr.aws_ecr_repository.vacation_planner
 
-      - name: Terraform plan
-        id: plan
-        run: |
-          if [ "${{ steps.mode.outputs.destroy }}" = "true" ]; then
-            terraform plan -destroy -input=false -out=tfplan
-          else
-            terraform plan -input=false -out=tfplan
-          fi
+  #     - name: Terraform plan
+  #       id: plan
+  #       run: |
+  #         if [ "${{ steps.mode.outputs.destroy }}" = "true" ]; then
+  #           terraform plan -destroy -input=false -out=tfplan
+  #         else
+  #           terraform plan -input=false -out=tfplan
+  #         fi
 
-      - name: Show plan
-        run: terraform show -no-color tfplan
+  #     - name: Show plan
+  #       run: terraform show -no-color tfplan
 
-      - name: Comment plan on PR
-        if: github.event_name == 'pull_request'
-        uses: actions/github-script@v7
-        env:
-          PLAN_OUTCOME: ${{ steps.plan.outcome }}
-        with:
-          script: |
-            const { execSync } = require('child_process');
-            let out = execSync('terraform show -no-color tfplan', { cwd: 'vacation_planner/terraform' }).toString();
-            if (out.length > 60000) out = out.slice(0, 60000) + '\n... (truncated)';
-            await github.rest.issues.createComment({
-              ...context.repo,
-              issue_number: context.issue.number,
-              body: `### Terraform plan (${process.env.PLAN_OUTCOME})\n\`\`\`\n${out}\n\`\`\``,
-            });
+  #     - name: Comment plan on PR
+  #       if: github.event_name == 'pull_request'
+  #       uses: actions/github-script@v7
+  #       env:
+  #         PLAN_OUTCOME: ${{ steps.plan.outcome }}
+  #       with:
+  #         script: |
+  #           const { execSync } = require('child_process');
+  #           let out = execSync('terraform show -no-color tfplan', { cwd: 'vacation_planner/terraform' }).toString();
+  #           if (out.length > 60000) out = out.slice(0, 60000) + '\n... (truncated)';
+  #           await github.rest.issues.createComment({
+  #             ...context.repo,
+  #             issue_number: context.issue.number,
+  #             body: `### Terraform plan (${process.env.PLAN_OUTCOME})\n\`\`\`\n${out}\n\`\`\``,
+  #           });
 
-      # The plan references the Lambda zip built by archive_file, so it must travel with tfplan.
-      - uses: actions/upload-artifact@v4
-        with:
-          name: tfplan
-          path: |
-            vacation_planner/terraform/tfplan
-            vacation_planner/terraform/Lambda/build/lambda.zip
+  #     # The plan references the Lambda zip built by archive_file, so it must travel with tfplan.
+  #     - uses: actions/upload-artifact@v4
+  #       with:
+  #         name: tfplan
+  #         path: |
+  #           vacation_planner/terraform/tfplan
+  #           vacation_planner/terraform/Lambda/build/lambda.zip
 
   # 4. Apply the plan: creates/updates the AgentCore runtime against the freshly pushed image.
   # apply:
@@ -260,7 +260,7 @@ jobs:
   # Applies the saved destroy plan (deletes the repository and all its images).
   destroy:
     name: Terraform destroy
-    needs: plan
+    #needs: plan
     if: needs.plan.outputs.destroy == 'true' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     defaults:
