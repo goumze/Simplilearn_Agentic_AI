@@ -26,8 +26,11 @@ output "agent_runtime_arn" {
 module "lambda" {
   source = "./Lambda"
 
-  agent_runtime_arn = module.agentcore.agent_runtime_arn
-  tags              = var.tags
+  function_name       = "vacation_planner"
+  source_dir          = "vacation_planner"
+  agent_runtime_arn   = module.agentcore.agent_runtime_arn
+  managed_policy_arns = ["arn:aws:iam::aws:policy/BedrockAgentCoreFullAccess"]
+  tags                = var.tags
 }
 
 output "lambda_execution_role_arn" {
@@ -95,4 +98,23 @@ output "dynamodb_table_name" {
 
 output "dynamodb_table_arn" {
   value = module.dynamodb.table_arn
+}
+
+module "travel_details_tool" {
+  source = "./Lambda"
+
+  function_name       = "bedrock_agentcore_travel_details_tool"
+  source_dir          = "bedrock_agentcore_travel_details_tool"
+  agent_runtime_arn   = module.agentcore.agent_runtime_arn
+  managed_policy_arns = ["arn:aws:iam::aws:policy/AdministratorAccess"]
+  inline_policy_json  = null
+  tags                = var.tags
+}
+
+output "travel_details_tool_function_name" {
+  value = module.travel_details_tool.lambda_function_name
+}
+
+output "travel_details_tool_function_arn" {
+  value = module.travel_details_tool.lambda_function_arn
 }

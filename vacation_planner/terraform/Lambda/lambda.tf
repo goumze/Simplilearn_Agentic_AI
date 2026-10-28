@@ -2,8 +2,8 @@ data "aws_region" "current" {}
 
 data "archive_file" "lambda" {
   type        = "zip"
-  source_file = "${path.module}/../../src/vacation_planner/lambda.py"
-  output_path = "${path.module}/build/lambda.zip"
+  source_file = "${path.root}/../src/${var.source_dir}/lambda.py"
+  output_path = "${path.module}/build/${var.function_name}.zip"
 }
 
 data "aws_iam_policy_document" "lambda_assume_role" {
@@ -24,10 +24,24 @@ resource "aws_iam_role" "lambda_execution" {
   tags               = var.tags
 }
 
-# Lets the function invoke the AgentCore agent runtime
-resource "aws_iam_role_policy_attachment" "bedrock_agentcore_full_access" {
+# Managed policies attached to the execution role; supplied per function
+resource "aws_iam_role_policy_attachment" "managed" {
+  for_each   = toset(var.managed_policy_arns)
   role       = aws_iam_role.lambda_execution.name
-  policy_arn = "arn:aws:iam::aws:policy/BedrockAgentCoreFullAccess"
+  policy_arn = each.value
+}
+
+# Optional function-specific inline policy (e.g. DynamoDB access)
+resource "aws_iam_role_policy" "custom" {
+  count  = var.inline_policy_json == null ? 0 : 1
+  name   = "${var.function_name}-custom-policy"
+  role   = aws_iam_role.lambda_execution.id
+  policy = var.inline_policy_json
+}
+
+moved {
+  from = aws_iam_role_policy_attachment.bedrock_agentcore_full_access
+  to   = aws_iam_role_policy_attachment.managed["arn:aws:iam::aws:policy/BedrockAgentCoreFullAccess"]
 }
 
 resource "aws_cloudwatch_log_group" "lambda" {
@@ -56,7 +70,12 @@ resource "aws_iam_role_policy" "lambda_logging" {
   policy = data.aws_iam_policy_document.lambda_logging.json
 }
 
-resource "aws_lambda_function" "vacation_planner" {
+moved {
+  from = aws_lambda_function.vacation_planner
+  to   = aws_lambda_function.this
+}
+
+resource "aws_lambda_function" "this" {
   function_name    = var.function_name
   role             = aws_iam_role.lambda_execution.arn
   filename         = data.archive_file.lambda.output_path
@@ -77,8 +96,10 @@ resource "aws_lambda_function" "vacation_planner" {
 
   # The role must be able to write logs before the function's first invocation
   depends_on = [
-    aws_iam_role_policy_attachment.bedrock_agentcore_full_access,
+    aws_iam_role_policy_attachment.managed,
+    aws_iam_role_policy.custom,
     aws_iam_role_policy.lambda_logging,
     aws_cloudwatch_log_group.lambda,
   ]
 }
+

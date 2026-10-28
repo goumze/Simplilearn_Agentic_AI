@@ -5,17 +5,17 @@ output "lambda_execution_role_arn" {
 
 output "lambda_function_name" {
   description = "Name of the Lambda function"
-  value       = aws_lambda_function.vacation_planner.function_name
+  value       = aws_lambda_function.this.function_name
 }
 
 output "lambda_function_arn" {
   description = "ARN of the Lambda function"
-  value       = aws_lambda_function.vacation_planner.arn
+  value       = aws_lambda_function.this.arn
 }
 
 output "lambda_invoke_arn" {
   description = "Invoke ARN of the Lambda function, used by API Gateway integrations"
-  value       = aws_lambda_function.vacation_planner.invoke_arn
+  value       = aws_lambda_function.this.invoke_arn
 }
 
 output "lambda_log_group_name" {
