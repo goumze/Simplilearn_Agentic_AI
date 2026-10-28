@@ -41,7 +41,8 @@ env:
   TF_IN_AUTOMATION: "true"
 
 jobs:
-  # Deployment order: ECR repository -> image build & push -> full plan -> apply (AgentCore).
+  # Deployment order: ECR repository -> image build & push -> full apply (AgentCore).
+  # Plan jobs run for pull requests and manual plan/destroy runs.
   # 1. Create the ECR repository only, so the image has somewhere to go.
   ecr:
     name: Terraform apply (ECR only)
@@ -223,10 +224,11 @@ jobs:
             vacation_planner/terraform/tfplan
             vacation_planner/terraform/Lambda/build/lambda.zip
 
-  # 4. Apply the plan: creates/updates the AgentCore runtime against the freshly pushed image.
+  # 4. Apply the full configuration: creates/updates the AgentCore runtime against the freshly pushed image.
+  #    Runs after the image is pushed, since AgentCore resolves the image digest at plan time.
   apply:
     name: Terraform apply
-    needs: plan
+    needs: build-push
     if: >-
       github.event_name == 'push' ||
       (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply')
@@ -247,15 +249,10 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
   
-      - uses: actions/download-artifact@v4
-        with:
-          name: tfplan
-          path: vacation_planner/terraform
-  
       - run: terraform init -input=false
   
-      - name: Apply saved plan
-        run: terraform apply -input=false tfplan
+      - name: Terraform apply
+        run: terraform apply -input=false -auto-approve
 
   # Applies the saved destroy plan (deletes the repository and all its images).
   # destroy:
