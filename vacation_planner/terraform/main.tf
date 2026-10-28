@@ -51,3 +51,34 @@ module "api_gateway" {
 output "api_gateway_invoke_url" {
   value = module.api_gateway.api_gateway_invoke_url
 }
+
+module "cognito" {
+  source = "./Cognito"
+
+  tags = var.tags
+}
+
+output "cognito_user_pool_id" {
+  value = module.cognito.user_pool_id
+}
+
+output "cognito_issuer_url" {
+  value = module.cognito.issuer_url
+}
+
+output "cognito_token_endpoint" {
+  value = module.cognito.token_endpoint
+}
+
+output "cognito_client_id" {
+  value = module.cognito.client_id
+}
+
+output "cognito_client_secret" {
+  value     = module.cognito.client_secret
+  sensitive = true
+}
+
+output "cognito_oauth_scope" {
+  value = module.cognito.oauth_scope
+}
