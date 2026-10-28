@@ -39,11 +39,6 @@ resource "aws_iam_role_policy" "custom" {
   policy = var.inline_policy_json
 }
 
-moved {
-  from = aws_iam_role_policy_attachment.bedrock_agentcore_full_access
-  to   = aws_iam_role_policy_attachment.managed["arn:aws:iam::aws:policy/BedrockAgentCoreFullAccess"]
-}
-
 resource "aws_cloudwatch_log_group" "lambda" {
   name              = "/aws/lambda/${var.function_name}"
   retention_in_days = var.log_retention_days
@@ -68,11 +63,6 @@ resource "aws_iam_role_policy" "lambda_logging" {
   name   = "${var.function_name}-lambda-logging-policy"
   role   = aws_iam_role.lambda_execution.id
   policy = data.aws_iam_policy_document.lambda_logging.json
-}
-
-moved {
-  from = aws_lambda_function.vacation_planner
-  to   = aws_lambda_function.this
 }
 
 resource "aws_lambda_function" "this" {
