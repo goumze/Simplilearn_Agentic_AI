@@ -229,7 +229,7 @@ jobs:
   #    Runs after the image is pushed, since AgentCore resolves the image digest at plan time.
   apply:
     name: Terraform apply
-    needs: build-push
+    needs: plan
     if: >-
       github.event_name == 'push' ||
       (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply')
