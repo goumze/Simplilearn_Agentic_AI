@@ -82,3 +82,17 @@ output "cognito_client_secret" {
 output "cognito_oauth_scope" {
   value = module.cognito.oauth_scope
 }
+
+module "dynamodb" {
+  source = "./DynamoDB"
+
+  tags = var.tags
+}
+
+output "dynamodb_table_name" {
+  value = module.dynamodb.table_name
+}
+
+output "dynamodb_table_arn" {
+  value = module.dynamodb.table_arn
+}
