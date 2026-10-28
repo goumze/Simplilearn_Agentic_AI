@@ -140,6 +140,7 @@ jobs:
   #    A destroy plan is produced when a manual run has action=destroy AND confirm="destroy".
   plan:
     name: Terraform plan
+    needs: build-push
     if: >-
       github.event_name == 'push' ||
       (github.event_name == 'workflow_dispatch' &&
