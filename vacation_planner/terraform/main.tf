@@ -16,6 +16,13 @@ module "agentcore" {
   repository_url  = module.ecr.repository_url
   tags            = var.tags
 
+  agent_environment_variables = {
+    GATEWAY_URL       = module.agent_core_gateway.gateway_url
+    TOKEN_URL         = module.cognito.token_endpoint
+    COGNITO_CLIENT_ID = module.cognito.client_id
+    COGNITO_SECRET    = module.cognito.client_secret
+  }
+
   depends_on = [module.ecr]
 }
 
@@ -105,7 +112,6 @@ module "travel_details_tool" {
 
   function_name       = "bedrock_agentcore_travel_details_tool"
   source_dir          = "bedrock_agentcore_travel_details_tool"
-  agent_runtime_arn   = module.agentcore.agent_runtime_arn
   managed_policy_arns = ["arn:aws:iam::aws:policy/AdministratorAccess"]
   inline_policy_json  = null
   environment_variables = {

@@ -9,8 +9,9 @@ variable "source_dir" {
 }
 
 variable "agent_runtime_arn" {
-  description = "ARN of the AgentCore agent runtime the function invokes (passed as AGENT_RUNTIME_ARN)"
+  description = "ARN of the AgentCore agent runtime the function invokes (passed as AGENT_RUNTIME_ARN); empty for functions that don't invoke the agent"
   type        = string
+  default     = ""
 }
 
 variable "environment_variables" {

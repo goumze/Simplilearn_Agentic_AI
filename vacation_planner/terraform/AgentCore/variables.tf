@@ -32,6 +32,13 @@ variable "model_invocation_log_retention_days" {
   default     = 14
 }
 
+variable "agent_environment_variables" {
+  description = "Extra environment variables for the agent container (Gateway URL, Cognito settings)"
+  type        = map(string)
+  default     = {}
+  sensitive   = true
+}
+
 variable "tags" {
   description = "Tags applied to AgentCore resources"
   type        = map(string)
