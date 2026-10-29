@@ -118,3 +118,20 @@ output "travel_details_tool_function_name" {
 output "travel_details_tool_function_arn" {
   value = module.travel_details_tool.lambda_function_arn
 }
+
+module "agent_core_gateway" {
+  source = "./Agent_Core_Gateway"
+
+  issuer_url             = module.cognito.issuer_url
+  allowed_clients        = [module.cognito.client_id]
+  travel_tool_lambda_arn = module.travel_details_tool.lambda_function_arn
+  tags                   = var.tags
+}
+
+output "agent_core_gateway_url" {
+  value = module.agent_core_gateway.gateway_url
+}
+
+output "agent_core_gateway_discovery_url" {
+  value = module.agent_core_gateway.discovery_url
+}
