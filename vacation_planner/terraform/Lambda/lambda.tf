@@ -76,10 +76,10 @@ resource "aws_lambda_function" "this" {
   memory_size      = var.memory_size
 
   environment {
-    variables = {
+    variables = merge(var.environment_variables, {
       AGENT_RUNTIME_ARN = var.agent_runtime_arn
       AGENT_REGION      = data.aws_region.current.region
-    }
+    })
   }
 
   tags = var.tags

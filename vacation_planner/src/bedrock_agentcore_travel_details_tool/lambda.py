@@ -1,6 +1,6 @@
 import json
+import os
 
-import boto3
 import boto3
 
 def lambda_handler(event, context):
@@ -8,9 +8,9 @@ def lambda_handler(event, context):
     city = event['city']
     client = boto3.client('dynamodb')
     response = client.get_item(
-        TableName='TravelDetails',
+        TableName=os.environ['TRAVEL_TABLE_NAME'],
         Key={
-            'City': {'S': city}
+            'city': {'S': city}
         }
     )
     print(response)

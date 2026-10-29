@@ -13,6 +13,12 @@ variable "agent_runtime_arn" {
   type        = string
 }
 
+variable "environment_variables" {
+  description = "Additional environment variables for the function"
+  type        = map(string)
+  default     = {}
+}
+
 variable "managed_policy_arns" {
   description = "IAM managed policy ARNs to attach to the function's execution role"
   type        = list(string)

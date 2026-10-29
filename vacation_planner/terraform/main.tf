@@ -108,7 +108,10 @@ module "travel_details_tool" {
   agent_runtime_arn   = module.agentcore.agent_runtime_arn
   managed_policy_arns = ["arn:aws:iam::aws:policy/AdministratorAccess"]
   inline_policy_json  = null
-  tags                = var.tags
+  environment_variables = {
+    TRAVEL_TABLE_NAME = module.dynamodb.table_name
+  }
+  tags = var.tags
 }
 
 output "travel_details_tool_function_name" {
