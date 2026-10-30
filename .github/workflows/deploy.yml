@@ -234,7 +234,6 @@ jobs:
   apply:
     name: Terraform apply
     needs: plan
-    if: false
     runs-on: ubuntu-latest
     defaults:
       run:
