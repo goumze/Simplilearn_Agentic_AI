@@ -8,6 +8,7 @@ from crewai import LLM
 from bedrock_agentcore.runtime import BedrockAgentCoreApp
 import requests
 from crewai.tools import tool
+import re
 
 app = BedrockAgentCoreApp()
 
@@ -69,9 +70,20 @@ def get_travel_packages(city: str) -> str:
     return "\n".join(item.get("text", "") for item in content) or str(result)
 
 
+PACKAGE_KEYWORDS = re.compile(r"\b(package|packages|deal|deals|pricing|price|prices|cost)\b", re.IGNORECASE)
+
+
+def is_package_request(topic: str) -> bool:
+    """Decides in code whether the request needs travel package data instead of web search"""
+    return PACKAGE_KEYWORDS.search(topic) is not None
+
+
 @CrewBase
 class VacationPlanner():
     """VacationPlanner crew"""
+
+    # Set by the caller before crew() is built; selects the single research tool for the request
+    package_request = False
 
     # Learn more about YAML configuration files here:
     # Agents: https://docs.crewai.com/concepts/agents#yaml-configuration-recommended
@@ -83,10 +95,12 @@ class VacationPlanner():
     # https://docs.crewai.com/concepts/agents#agent-tools
     @agent
     def vacation_researcher(self) -> Agent:
+        # Only one research tool is exposed per request, so the LLM has no choice to get wrong
+        research_tool = get_travel_packages if self.package_request else serper_dev_tool
         return Agent(
             config=self.agents_config['vacation_researcher'],
             verbose=True,
-            tools=[serper_dev_tool, get_travel_packages],
+            tools=[research_tool],
             llm=llm
         )
 
@@ -137,7 +151,9 @@ def agent_invocation(payload, context):
         user_input = payload.get("topic", "Bengaluru, India")
         print(f"Processing vacation destination: {user_input}", flush=True)
 
-        result = VacationPlanner().crew().kickoff(inputs={"topic": user_input})
+        planner = VacationPlanner()
+        planner.package_request = is_package_request(user_input)
+        result = planner.crew().kickoff(inputs={"topic": user_input})
         print("Result Raw:\n************\n", result.raw, flush=True)
 
         return {"result": result.raw}
@@ -151,7 +167,10 @@ def agent_invocation(payload, context):
 def test_local():
     """Test the crew locally without AgentCore"""
     try:
-        result = VacationPlanner().crew().kickoff(inputs={"topic": "Plan a vacation to Bengaluru, India"})
+        topic = "Plan a vacation to Bengaluru, India"
+        planner = VacationPlanner()
+        planner.package_request = is_package_request(topic)
+        result = planner.crew().kickoff(inputs={"topic": topic})
         print("Result Raw:\n************\n", result.raw)
         return result
     except Exception as e:
