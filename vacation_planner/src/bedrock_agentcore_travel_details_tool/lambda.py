@@ -14,7 +14,13 @@ def lambda_handler(event, context):
         }
     )
     print(response)
+    item = response.get('Item')
+    if item is None:
+        return {
+            "statusCode": 404,
+            "body": json.dumps({"message": f"No travel packages found for city '{city}'. Use the bare city name."})
+        }
     return {
         "statusCode": 200,
-        "body": json.dumps(response.get('Item'))
+        "body": json.dumps(item)
     }
