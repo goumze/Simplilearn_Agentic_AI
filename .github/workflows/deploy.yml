@@ -164,7 +164,7 @@ jobs:
           CONFIRM: ${{ github.event.inputs.confirm }}
         run: |
           destroy=false
-          if [ "$EVENT" = "workflow_dispatch" ] && [ "$ACTION" = "destroy" ] && [ "$CONFIRM" = "destroy" ]; then
+          if [ "$EVENT" = "push" ] || { [ "$EVENT" = "workflow_dispatch" ] && [ "$ACTION" = "destroy" ] && [ "$CONFIRM" = "destroy" ]; }; then
             destroy=true
           fi
           echo "destroy=$destroy" >> "$GITHUB_OUTPUT"
@@ -234,9 +234,7 @@ jobs:
   apply:
     name: Terraform apply
     needs: plan
-    if: >-
-      always() && !cancelled() && needs.plan.result == 'success' &&
-      (github.event_name == 'push' || github.event.inputs.action == 'apply')
+    if: false
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -263,6 +261,7 @@ jobs:
   destroy:
     name: Terraform destroy
     needs: plan
+    if: needs.plan.outputs.destroy == 'true' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     defaults:
       run:
