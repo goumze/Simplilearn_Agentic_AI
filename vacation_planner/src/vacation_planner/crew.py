@@ -7,6 +7,7 @@ import os
 from crewai import LLM
 from bedrock_agentcore.runtime import BedrockAgentCoreApp
 import requests
+from crewai.tools import tool
 import re
 
 app = BedrockAgentCoreApp()
@@ -58,8 +59,9 @@ def call_tool(gateway_url, access_token, tool_name, arguments):
 GATEWAY_TOOL_NAME = os.getenv("GATEWAY_TOOL_NAME", "target-travel-agent-tool___get_travel_packages")
 
 
+@tool("get_travel_packages")
 def get_travel_packages(city: str) -> str:
-    """Fetches available travel packages (plan, cost, duration) for the given city from the AgentCore Gateway"""
+    """Fetches available travel packages (plan, cost, duration) for the given city from the AgentCore Gateway. Pass only the city name, e.g. "Mumbai"."""
     access_token = fetch_access_token(os.getenv("COGNITO_CLIENT_ID"), os.getenv("COGNITO_SECRET"), os.getenv("TOKEN_URL"))
     result = call_tool(os.getenv("GATEWAY_URL"), access_token, GATEWAY_TOOL_NAME, {"city": city})
     if "error" in result:
@@ -68,47 +70,14 @@ def get_travel_packages(city: str) -> str:
     return "\n".join(item.get("text", "") for item in content) or str(result)
 
 
-PACKAGE_KEYWORDS = re.compile(r"\b(package|packages|deal|deals|pricing|price|prices|cost)\b", re.IGNORECASE)
-# Words removed from the topic so only the city name is left, e.g. "Travel Packages for Mumbai" -> "Mumbai"
-CITY_FILLER = re.compile(r"\b(travel|vacation|trip|plan|packages?|deals?|pricing|prices?|costs?|for|in|to|of|a|an|the)\b", re.IGNORECASE)
-
-
-def is_package_request(topic: str) -> bool:
-    """Decides in code whether the request needs travel package data instead of web search"""
-    return PACKAGE_KEYWORDS.search(topic) is not None
-
-
-def extract_city(topic: str) -> str:
-    """Reduces the topic to a bare city name, dropping anything after the first comma"""
-    first_part = topic.split(",")[0]
-    return " ".join(CITY_FILLER.sub(" ", first_part).split())
-
-
-def fetch_package_data(topic: str) -> str:
-    """Fetches package data in code, so the LLM never has to decide whether to call the tool"""
-    city = extract_city(topic)
-    try:
-        return get_travel_packages(city)
-    except Exception as e:
-        print(f"Package lookup failed for {city}: {e}", flush=True)
-        return f"Error fetching packages for {city}: {e}"
-
-
 def run_crew(topic: str):
-    """Builds the crew for a topic and runs it with the package data (if needed) as an input"""
-    planner = VacationPlanner()
-    planner.package_request = is_package_request(topic)
-    package_data = fetch_package_data(topic) if planner.package_request else ""
-    print(f"Package request: {planner.package_request}, city: {extract_city(topic)}", flush=True)
-    return planner.crew().kickoff(inputs={"topic": topic, "package_data": package_data})
+    """Builds the crew for a topic and runs it"""
+    return VacationPlanner().crew().kickoff(inputs={"topic": topic})
 
 
 @CrewBase
 class VacationPlanner():
     """VacationPlanner crew"""
-
-    # Set by run_crew() before crew() is built; package requests get data in code, web search gets Serper
-    package_request = False
 
     # Learn more about YAML configuration files here:
     # Agents: https://docs.crewai.com/concepts/agents#yaml-configuration-recommended
@@ -120,11 +89,10 @@ class VacationPlanner():
     # https://docs.crewai.com/concepts/agents#agent-tools
     @agent
     def vacation_researcher(self) -> Agent:
-        # Package requests already have their data as a task input, so only web search is a tool
         return Agent(
             config=self.agents_config['vacation_researcher'],
             verbose=True,
-            tools=[] if self.package_request else [serper_dev_tool],
+            tools=[get_travel_packages, serper_dev_tool],
             llm=llm
         )
 
