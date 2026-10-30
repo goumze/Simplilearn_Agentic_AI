@@ -231,62 +231,62 @@ jobs:
 
   # 4. Apply the full configuration: creates/updates the AgentCore runtime against the freshly pushed image.
   #    Runs only after the plan job succeeds.
-  # apply:
-  #   name: Terraform apply
-  #   needs: plan
-  #   if: false
-  #   runs-on: ubuntu-latest
-  #   defaults:
-  #     run:
-  #       working-directory: vacation_planner/terraform
-  #   steps:
-  #     - uses: actions/checkout@v4
-  
-  #     - uses: hashicorp/setup-terraform@v3
-  #       with:
-  #         terraform_version: "~> 1.10"
-  
-  #     - uses: aws-actions/configure-aws-credentials@v4
-  #       with:
-  #         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-  #         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-  #         aws-region: ${{ env.AWS_REGION }}
-  
-  #     - run: terraform init -input=false
-  
-  #     - name: Terraform apply
-  #       run: terraform apply -input=false -auto-approve
-
-  # Applies the saved destroy plan (deletes the repository and all its images).
-  destroy:
-    name: Terraform destroy
+  apply:
+    name: Terraform apply
     needs: plan
-    if: needs.plan.outputs.destroy == 'true' && github.event_name != 'pull_request'
+    if: false
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: vacation_planner/terraform
     steps:
       - uses: actions/checkout@v4
-
+  
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: "~> 1.10"
-
+  
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
-
-      - uses: actions/download-artifact@v4
-        with:
-          name: tfplan
-          path: vacation_planner/terraform
-
+  
       - run: terraform init -input=false
+  
+      - name: Terraform apply
+        run: terraform apply -input=false -auto-approve
 
-      - name: Apply saved destroy plan
-        run: terraform apply -input=false tfplan
+  # Applies the saved destroy plan (deletes the repository and all its images).
+  # destroy:
+  #   name: Terraform destroy
+  #   needs: plan
+  #   if: needs.plan.outputs.destroy == 'true' && github.event_name != 'pull_request'
+  #   runs-on: ubuntu-latest
+  #   defaults:
+  #     run:
+  #       working-directory: vacation_planner/terraform
+  #   steps:
+  #     - uses: actions/checkout@v4
+
+  #     - uses: hashicorp/setup-terraform@v3
+  #       with:
+  #         terraform_version: "~> 1.10"
+
+  #     - uses: aws-actions/configure-aws-credentials@v4
+  #       with:
+  #         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  #         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  #         aws-region: ${{ env.AWS_REGION }}
+
+  #     - uses: actions/download-artifact@v4
+  #       with:
+  #         name: tfplan
+  #         path: vacation_planner/terraform
+
+  #     - run: terraform init -input=false
+
+  #     - name: Apply saved destroy plan
+  #       run: terraform apply -input=false tfplan
   # adding a comment for agent core
 
