@@ -2,7 +2,10 @@
 research_task:
   description: >
     Analyse the user request: "{topic}".
-    Research it using the research tool you have been given. If that tool needs a city, pass only the bare city name (for example "Mumbai"), not the whole request.
+    Travel package data already fetched from the travel database (empty if none was requested):
+    {package_data}
+    If the package data above is not empty, base your findings only on it and do not search the web.
+    If it is empty, research the request using the web search tool you have been given.
   expected_output: >
     A list of 15 bullet points highlighting the most important and exciting facts about {topic}.
     If travel packages were fetched, list the available packages with details for the {topic}.
