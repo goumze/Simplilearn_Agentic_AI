@@ -59,7 +59,7 @@ def call_tool(gateway_url, access_token, tool_name, arguments):
 GATEWAY_TOOL_NAME = os.getenv("GATEWAY_TOOL_NAME", "target-travel-agent-tool___get_travel_packages")
 
 
-@tool("Get Travel Packages")
+@tool("get_travel_packages")
 def get_travel_packages(city: str) -> str:
     """Fetches available travel packages (plan, cost, duration) for the given city from the AgentCore Gateway. Pass only the city name, e.g. "Mumbai"."""
     access_token = fetch_access_token(os.getenv("COGNITO_CLIENT_ID"), os.getenv("COGNITO_SECRET"), os.getenv("TOKEN_URL"))
