@@ -11,6 +11,7 @@ from crewai.tools import tool
 import re
 import boto3
 import uuid
+import json
 from datetime import datetime
 
 app = BedrockAgentCoreApp()
@@ -77,9 +78,11 @@ def get_travel_packages(city: str) -> str:
     return "\n".join(item.get("text", "") for item in content) or str(result)
 
 
-def run_crew(topic: str, context: dict = None):
+def run_crew(topic: str, previous_conversations: str = ""):
     """Builds the crew for a topic and runs it"""
-    return VacationPlanner().crew().kickoff(inputs={"topic": topic}, context=context)
+    return VacationPlanner().crew().kickoff(
+        inputs={"topic": topic, "previous_conversations": previous_conversations}
+    )
 
 
 @CrewBase
@@ -171,14 +174,14 @@ def agent_invocation(payload, context):
                     formatted_event[key] = value
             formatted_conversations.append(formatted_event)
 
-        result = run_crew(user_input, context={"previous_conversations": formatted_conversations})
+        result = run_crew(user_input, previous_conversations=json.dumps(formatted_conversations, default=str))
 
         #Memory - Store the current conversation
         memory_client.create_event(
             memoryId = MEMORY_ID,
             actorId = "user",
             sessionId = session_id,
-            eventTimestamp=datetime.now().isoformat(),
+            eventTimestamp=datetime.now(),
             payload = 
             [{"conversational":{"content":{"text":user_input},"role":"USER"}},
              {"conversational":{"content":{"text":result.raw},"role":"ASSISTANT"}}

@@ -2,6 +2,7 @@
 research_task:
   description: >
     Analyse the user request: "{topic}".
+    Previous conversations with this user (use them for personalisation, skip if empty): {previous_conversations}
     You have two research tools. Use get_travel_packages when the request asks about travel packages, deals, or prices, passing only the bare city name (for example "Mumbai"). For any other request, use the web search tool.
   expected_output: >
     A list of 15 bullet points highlighting the most important and exciting facts about {topic}.
