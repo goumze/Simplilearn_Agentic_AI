@@ -26,7 +26,7 @@ llm=LLM(model=os.getenv("LLM_MODEL"),region=os.getenv("AWS_DEFAULT_REGION"),api_
 # https://docs.crewai.com/concepts/crews#example-crew-class-with-decorators
 
 #Memory client initialization
-memory_client = boto3.client("bedrock-agentcore-memory",region_name=os.getenv("AWS_DEFAULT_REGION"))
+memory_client = boto3.client("bedrock-agentcore",region_name=os.getenv("AWS_DEFAULT_REGION"))
 MEMORY_ID = os.getenv("MEMORY_ID")
 
 def fetch_access_token(client_id, client_secret, token_url):
@@ -174,7 +174,7 @@ def agent_invocation(payload, context):
         result = run_crew(user_input, context={"previous_conversations": formatted_conversations})
 
         #Memory - Store the current conversation
-        memory_client.store_event(
+        memory_client.create_event(
             memoryId = MEMORY_ID,
             actorId = "user",
             sessionId = session_id,
