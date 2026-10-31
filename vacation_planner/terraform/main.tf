@@ -21,6 +21,7 @@ module "agentcore" {
     TOKEN_URL         = module.cognito.token_endpoint
     COGNITO_CLIENT_ID = module.cognito.client_id
     COGNITO_SECRET    = module.cognito.client_secret
+    MEMORY_ID         = module.agent_core_memory.memory_id
   }
 
   depends_on = [module.ecr]
@@ -143,4 +144,14 @@ output "agent_core_gateway_url" {
 
 output "agent_core_gateway_discovery_url" {
   value = module.agent_core_gateway.discovery_url
+}
+
+module "agent_core_memory" {
+  source = "./Agent_Core_Memory"
+
+  tags = var.tags
+}
+
+output "agent_core_memory_id" {
+  value = module.agent_core_memory.memory_id
 }

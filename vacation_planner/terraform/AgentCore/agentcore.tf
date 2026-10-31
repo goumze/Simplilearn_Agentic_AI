@@ -121,6 +121,13 @@ data "aws_iam_policy_document" "agentcore_runtime" {
     actions   = ["bedrock-agentcore:GetWorkloadAccessToken", "bedrock-agentcore:GetWorkloadAccessTokenForJWT", "bedrock-agentcore:GetWorkloadAccessTokenForUserId"]
     resources = ["arn:aws:bedrock-agentcore:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:*"]
   }
+
+  statement {
+    sid       = "MemoryEvents"
+    effect    = "Allow"
+    actions   = ["bedrock-agentcore:CreateEvent", "bedrock-agentcore:ListEvents"]
+    resources = ["arn:aws:bedrock-agentcore:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:memory/*"]
+  }
 }
 
 resource "aws_iam_role_policy" "agentcore_runtime" {

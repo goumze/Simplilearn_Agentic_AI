@@ -9,6 +9,9 @@ from bedrock_agentcore.runtime import BedrockAgentCoreApp
 import requests
 from crewai.tools import tool
 import re
+import boto3
+import uuid
+from datetime import datetime
 
 app = BedrockAgentCoreApp()
 
@@ -21,6 +24,10 @@ llm=LLM(model=os.getenv("LLM_MODEL"),region=os.getenv("AWS_DEFAULT_REGION"),api_
 # If you want to run a snippet of code before or after the crew starts,
 # you can use the @before_kickoff and @after_kickoff decorators
 # https://docs.crewai.com/concepts/crews#example-crew-class-with-decorators
+
+#Memory client initialization
+memory_client = boto3.client("bedrock-agentcore-memory",region_name=os.getenv("AWS_DEFAULT_REGION"))
+MEMORY_ID = os.getenv("MEMORY_ID")
 
 def fetch_access_token(client_id, client_secret, token_url):
     """Gets a JWT from Cognito using the OAuth client credentials grant"""
@@ -70,9 +77,9 @@ def get_travel_packages(city: str) -> str:
     return "\n".join(item.get("text", "") for item in content) or str(result)
 
 
-def run_crew(topic: str):
+def run_crew(topic: str, context: dict = None):
     """Builds the crew for a topic and runs it"""
-    return VacationPlanner().crew().kickoff(inputs={"topic": topic})
+    return VacationPlanner().crew().kickoff(inputs={"topic": topic}, context=context)
 
 
 @CrewBase
@@ -143,7 +150,43 @@ def agent_invocation(payload, context):
         user_input = payload.get("topic", "Bengaluru, India")
         print(f"Processing vacation destination: {user_input}", flush=True)
 
-        result = run_crew(user_input)
+        #Memory - Retrieve past memory
+        session_id = getattr(context,"session_id", "default_session")
+
+        previous_events = memory_client.list_events(
+            memoryId = MEMORY_ID,
+            actorId = "user",
+            sessionId = session_id,
+            maxResults = 3
+        )
+
+        events=previous_events.get("events", [])
+        formatted_conversations = []
+        for event in events:
+            formatted_event = {}
+            for key, value in event.items():
+                if isinstance(value,datetime):
+                    formatted_event[key] = value.isoformat()
+                else:
+                    formatted_event[key] = value
+            formatted_conversations.append(formatted_event)
+
+        result = run_crew(user_input, context={"previous_conversations": formatted_conversations})
+
+        #Memory - Store the current conversation
+        memory_client.store_event(
+            memoryId = MEMORY_ID,
+            actorId = "user",
+            sessionId = session_id,
+            eventTimestamp=datetime.now().isoformat(),
+            payload = 
+            [{"conversational":{"content":{"text":user_input},"role":"USER"}},
+             {"conversational":{"content":{"text":result.raw},"role":"ASSISTANT"}}
+            ],
+            clientToken=str(uuid.uuid4())
+        )
+        print("Stored conversation in memory.")
+        print("Context:\n************\n", context, flush=True)
         print("Result Raw:\n************\n", result.raw, flush=True)
 
         return {"result": result.raw}
